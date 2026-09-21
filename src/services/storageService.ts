@@ -1,4 +1,20 @@
-import { Course, CalendarEvent, Task, User, Community, PaymentRecord, SyncQueueItem, SystemLog, PushNotification } from '../types';
+import { 
+  Course, 
+  CalendarEvent, 
+  Task, 
+  User, 
+  Community, 
+  PaymentRecord, 
+  SyncQueueItem, 
+  SystemLog, 
+  PushNotification,
+  Announcement,
+  StudyResource,
+  ScientificBreakthrough,
+  TimetableSlot,
+  ManagedUser,
+  RolePermission 
+} from '../types';
 import { 
   INITIAL_USER, 
   INITIAL_COURSES, 
@@ -7,7 +23,14 @@ import {
   INITIAL_COMMUNITIES, 
   INITIAL_PAYMENTS, 
   INITIAL_NOTIFICATIONS, 
-  INITIAL_SYSTEM_LOGS 
+  INITIAL_SYSTEM_LOGS,
+  INITIAL_UNIVERSITIES,
+  INITIAL_ANNOUNCEMENTS,
+  INITIAL_STUDY_RESOURCES,
+  INITIAL_BREAKTHROUGHS,
+  INITIAL_TIMETABLE,
+  INITIAL_MANAGED_USERS,
+  INITIAL_ROLE_PERMISSIONS
 } from '../data/mockInitialData';
 
 const KEYS = {
@@ -18,6 +41,13 @@ const KEYS = {
   COMMUNITIES: 'campusflow_communities_v1',
   PAYMENTS: 'campusflow_payments_v1',
   NOTIFICATIONS: 'campusflow_notifications_v1',
+  ANNOUNCEMENTS: 'campusflow_announcements_v1',
+  UNIVERSITIES: 'campusflow_universities_v1',
+  STUDY_RESOURCES: 'campusflow_study_resources_v1',
+  BREAKTHROUGHS: 'campusflow_breakthroughs_v1',
+  TIMETABLE: 'campusflow_timetable_v1',
+  MANAGED_USERS: 'campusflow_managed_users_v1',
+  ROLE_PERMISSIONS: 'campusflow_role_permissions_v1',
   SYNC_QUEUE: 'campusflow_sync_queue_v1',
   LOGS: 'campusflow_logs_v1',
   SIMULATED_OFFLINE: 'campusflow_simulated_offline_v1',
@@ -82,6 +112,48 @@ export const StorageService = {
     safeSet(KEYS.NOTIFICATIONS, notifications);
   },
 
+  getAnnouncements: (): Announcement[] => safeGet(KEYS.ANNOUNCEMENTS, INITIAL_ANNOUNCEMENTS),
+  saveAnnouncements: (announcements: Announcement[]): void => {
+    safeSet(KEYS.ANNOUNCEMENTS, announcements);
+    StorageService.enqueueSync('event', 'create', `Campus announcements updated (${announcements.length} records)`);
+  },
+  addAnnouncement: (announcement: Announcement): void => {
+    const list = StorageService.getAnnouncements();
+    const updated = [announcement, ...list];
+    safeSet(KEYS.ANNOUNCEMENTS, updated);
+    StorageService.enqueueSync('event', 'create', `New announcement broadcast: ${announcement.title}`);
+  },
+  acknowledgeAnnouncement: (id: string): Announcement[] => {
+    const list = StorageService.getAnnouncements();
+    const updated = list.map(a => a.id === id ? { ...a, acknowledged: true, acknowledgedCount: (a.acknowledgedCount || 0) + 1 } : a);
+    safeSet(KEYS.ANNOUNCEMENTS, updated);
+    return updated;
+  },
+
+  getUniversities: (): string[] => safeGet(KEYS.UNIVERSITIES, INITIAL_UNIVERSITIES),
+  addUniversity: (uniName: string): string[] => {
+    const trimmed = uniName.trim();
+    if (!trimmed) return StorageService.getUniversities();
+    const existing = StorageService.getUniversities();
+    if (existing.includes(trimmed)) return existing;
+    const updated = [trimmed, ...existing];
+    safeSet(KEYS.UNIVERSITIES, updated);
+    return updated;
+  },
+
+  getStudyResources: (): StudyResource[] => safeGet(KEYS.STUDY_RESOURCES, INITIAL_STUDY_RESOURCES),
+  saveStudyResources: (res: StudyResource[]): void => {
+    safeSet(KEYS.STUDY_RESOURCES, res);
+  },
+
+  getBreakthroughs: (): ScientificBreakthrough[] => safeGet(KEYS.BREAKTHROUGHS, INITIAL_BREAKTHROUGHS),
+  upvoteBreakthrough: (id: string): ScientificBreakthrough[] => {
+    const list = StorageService.getBreakthroughs();
+    const updated = list.map(b => b.id === id ? { ...b, upvotes: b.upvotes + 1 } : b);
+    safeSet(KEYS.BREAKTHROUGHS, updated);
+    return updated;
+  },
+
   getSyncQueue: (): SyncQueueItem[] => safeGet(KEYS.SYNC_QUEUE, []),
   
   enqueueSync: (entity: SyncQueueItem['entity'], action: SyncQueueItem['action'], summary: string): void => {
@@ -123,6 +195,57 @@ export const StorageService = {
     safeSet(KEYS.LOGS, [newLog, ...logs].slice(0, 50));
   },
 
+  getTimetable: (): TimetableSlot[] => safeGet(KEYS.TIMETABLE, INITIAL_TIMETABLE),
+  saveTimetable: (slots: TimetableSlot[]): void => {
+    safeSet(KEYS.TIMETABLE, slots);
+    StorageService.enqueueSync('timetable', 'update', `Updated timetable with ${slots.length} class slots`);
+  },
+  addTimetableSlot: (slot: TimetableSlot): TimetableSlot[] => {
+    const current = StorageService.getTimetable();
+    const updated = [...current, slot];
+    StorageService.saveTimetable(updated);
+    return updated;
+  },
+  deleteTimetableSlot: (id: string): TimetableSlot[] => {
+    const current = StorageService.getTimetable();
+    const updated = current.filter(s => s.id !== id);
+    StorageService.saveTimetable(updated);
+    return updated;
+  },
+  importTimetableSlots: (newSlots: TimetableSlot[], mode: 'replace' | 'merge' = 'merge'): TimetableSlot[] => {
+    let result: TimetableSlot[];
+    if (mode === 'replace') {
+      result = newSlots;
+    } else {
+      const current = StorageService.getTimetable();
+      // Avoid exact duplicates by day + startTime + courseCode
+      const existingKeys = new Set(current.map(s => `${s.day}_${s.startTime}_${s.courseCode}`));
+      const filtered = newSlots.filter(s => !existingKeys.has(`${s.day}_${s.startTime}_${s.courseCode}`));
+      result = [...current, ...filtered];
+    }
+    StorageService.saveTimetable(result);
+    StorageService.addLog('timetable-service', 'info', `Imported ${newSlots.length} timetable entries (${mode} mode)`);
+    return result;
+  },
+
+  getManagedUsers: (): ManagedUser[] => safeGet(KEYS.MANAGED_USERS, INITIAL_MANAGED_USERS),
+  saveManagedUsers: (users: ManagedUser[]): void => {
+    safeSet(KEYS.MANAGED_USERS, users);
+    StorageService.enqueueSync('users', 'update', `Updated user directory (${users.length} accounts)`);
+  },
+  updateManagedUser: (updatedUser: ManagedUser): ManagedUser[] => {
+    const users = StorageService.getManagedUsers();
+    const updated = users.map(u => u.id === updatedUser.id ? updatedUser : u);
+    StorageService.saveManagedUsers(updated);
+    return updated;
+  },
+
+  getRolePermissions: (): RolePermission[] => safeGet(KEYS.ROLE_PERMISSIONS, INITIAL_ROLE_PERMISSIONS),
+  saveRolePermissions: (perms: RolePermission[]): void => {
+    safeSet(KEYS.ROLE_PERMISSIONS, perms);
+    StorageService.enqueueSync('permissions', 'update', `Updated role access control matrix`);
+  },
+
   isSimulatedOffline: (): boolean => safeGet(KEYS.SIMULATED_OFFLINE, false),
   setSimulatedOffline: (val: boolean): void => {
     safeSet(KEYS.SIMULATED_OFFLINE, val);
@@ -136,6 +259,13 @@ export const StorageService = {
     localStorage.removeItem(KEYS.COMMUNITIES);
     localStorage.removeItem(KEYS.PAYMENTS);
     localStorage.removeItem(KEYS.NOTIFICATIONS);
+    localStorage.removeItem(KEYS.ANNOUNCEMENTS);
+    localStorage.removeItem(KEYS.UNIVERSITIES);
+    localStorage.removeItem(KEYS.STUDY_RESOURCES);
+    localStorage.removeItem(KEYS.BREAKTHROUGHS);
+    localStorage.removeItem(KEYS.TIMETABLE);
+    localStorage.removeItem(KEYS.MANAGED_USERS);
+    localStorage.removeItem(KEYS.ROLE_PERMISSIONS);
     localStorage.removeItem(KEYS.SYNC_QUEUE);
     localStorage.removeItem(KEYS.LOGS);
     localStorage.removeItem(KEYS.SIMULATED_OFFLINE);

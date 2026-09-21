@@ -1,6 +1,17 @@
 export type EventCategory = 'lecture' | 'practical' | 'assessment' | 'personal' | 'sport' | 'society';
 export type TaskStatus = 'not_started' | 'in_progress' | 'submitted' | 'graded';
 export type UserRole = 'student' | 'lecturer' | 'admin';
+export type LeadershipTitle = 
+  | 'Student'
+  | 'Class Representative'
+  | 'Guild Leader'
+  | 'Course Lecturer / Tutor'
+  | 'Head of Department (HOD)'
+  | 'Dean of Faculty / School'
+  | 'Academic Registrar / Manager'
+  | 'Vice Chancellor / Deputy VC'
+  | 'System Administrator';
+
 export type PaymentChannel = 'M-Pesa' | 'Mixx by Yas' | 'Airtel Money' | 'HaloPesa' | 'AzamPesa' | 'Card' | 'Bank' | 'QR';
 
 export interface Course {
@@ -32,6 +43,9 @@ export interface CalendarEvent {
   location: string;
   category: EventCategory;
   courseId?: string;
+  courseCode?: string;
+  instructor?: string;
+  color?: string;
   reminderMinutes?: number;
   isCompleted?: boolean;
 }
@@ -53,6 +67,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  leadershipTitle?: LeadershipTitle | string;
   university: string;
   programme: string;
   currentYear: number;
@@ -60,6 +75,123 @@ export interface User {
   avatar?: string;
   authProvider: 'email' | 'google' | 'microsoft';
   mfaEnabled: boolean;
+}
+
+export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+
+export interface TimetableSlot {
+  id: string;
+  courseCode: string; // e.g. "BIO 203"
+  courseName: string; // e.g. "Biostatistics & Research Methodology"
+  day: DayOfWeek;
+  startTime: string; // "09:30"
+  endTime: string; // "10:30"
+  timeFormatted?: string; // "09:30 - 10:30 AM"
+  hall: string; // e.g. "Hall 03"
+  building?: string; // e.g. "CoNAS Main Complex"
+  lecturer: string; // e.g. "Prof. Assad"
+  lecturerEmail?: string;
+  year: number; // 1, 2, 3, 4
+  semester: number; // 1, 2
+  type: 'Lecture' | 'Practical' | 'Tutorial' | 'Seminar';
+  color?: string;
+  notes?: string;
+  attendanceRequired?: boolean;
+}
+
+export interface AnnouncementAttachment {
+  id: string;
+  name: string;
+  size: string;
+  type: 'pdf' | 'word' | 'image' | 'file' | 'doc' | 'other';
+  url?: string;
+  previewUrl?: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  authorName: string;
+  authorRole: UserRole;
+  authorTitle?: string;
+  authorId: string;
+  university: string; // "ALL" or specific university name
+  targetAudience: {
+    type: 'course' | 'year' | 'college' | 'university' | 'all';
+    courseCode?: string; // e.g. "BIO 203" or "ENG 004"
+    year?: number; // e.g. 1
+    collegeOrFaculty?: string;
+    label: string; // e.g. "Year 1 Biostatistics", "1st Year All Programmes", "All Students"
+  };
+  priority: 'urgent' | 'venue_change' | 'assessment' | 'general';
+  timestamp: string;
+  pinned?: boolean;
+  acknowledged?: boolean;
+  acknowledgedCount?: number;
+  actionTab?: string;
+  actionUrl?: string;
+  attachments?: AnnouncementAttachment[];
+}
+
+export interface RolePermission {
+  role: UserRole | string;
+  label: string;
+  canBroadcast: boolean;
+  canAttachFiles: boolean;
+  canEditTimetable: boolean;
+  canManageCourses: boolean;
+  canVerifyPayments: boolean;
+  canManageUsers: boolean;
+  canIssueAlerts: boolean;
+  canExportData: boolean;
+}
+
+export interface ManagedUser extends User {
+  status: 'active' | 'suspended' | 'pending';
+  department?: string;
+  lastActive?: string;
+  phone?: string;
+  registeredDate?: string;
+}
+
+export interface AIChatMessage {
+  id: string;
+  sender: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  suggestedActions?: {
+    label: string;
+    actionTab?: string;
+    prompt?: string;
+  }[];
+}
+
+export interface StudyResource {
+  id: string;
+  courseCode: string;
+  courseTitle: string;
+  title: string;
+  type: 'textbook' | 'lecture_notes' | 'past_paper' | 'interactive_tool' | 'research_link';
+  source: string; // e.g. "MIT OpenCourseWare", "PubMed Central", "TCU Digital Library"
+  description: string;
+  url: string;
+  readingTime?: string;
+  tags: string[];
+}
+
+export interface ScientificBreakthrough {
+  id: string;
+  headline: string;
+  summary: string;
+  field: string; // e.g. "Space Technology", "Telemedicine & Digital Health", "Genomics & Tropical Disease", "Microgrid Clean Tech"
+  relevantCourses: string[]; // e.g. ["ZOO 201", "BIO 203"]
+  publishedDate: string;
+  source: string; // e.g. "Nature Health", "NASA Tech Briefs", "Lancet Global Health"
+  readingTime: string;
+  discussionPrompt: string;
+  upvotes: number;
+  url?: string;
 }
 
 export interface CommunityMessage {
@@ -70,6 +202,8 @@ export interface CommunityMessage {
   timestamp: string;
   likes: number;
   isPinned?: boolean;
+  isAlert?: boolean;
+  alertType?: 'venue' | 'exam' | 'material' | 'general';
 }
 
 export interface Community {
@@ -101,12 +235,12 @@ export interface PushNotification {
   message: string;
   timestamp: string;
   read: boolean;
-  type: 'academic' | 'payment' | 'system' | 'social';
+  type: 'academic' | 'payment' | 'system' | 'social' | 'alert';
 }
 
 export interface SyncQueueItem {
   id: string;
-  entity: 'event' | 'task' | 'course' | 'payment' | 'profile';
+  entity: 'event' | 'task' | 'course' | 'payment' | 'profile' | 'timetable' | 'users' | 'permissions';
   action: 'create' | 'update' | 'delete';
   timestamp: string;
   status: 'pending' | 'synced' | 'failed';

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, Mail, Lock, Building, CheckCircle, Key } from 'lucide-react';
 import { User, UserRole } from '../types';
+import { StorageService } from '../services/storageService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -18,11 +19,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onNotify,
 }) => {
   const [role, setRole] = useState<UserRole>(currentUser.role);
+  const [leadershipTitle, setLeadershipTitle] = useState(currentUser.leadershipTitle || '');
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email);
   const [university, setUniversity] = useState(currentUser.university);
   const [programme, setProgramme] = useState(currentUser.programme);
   const [mfaEnabled, setMfaEnabled] = useState(currentUser.mfaEnabled);
+  const universities = StorageService.getUniversities();
 
   if (!isOpen) return null;
 
@@ -44,12 +47,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       name,
       email,
       role,
+      leadershipTitle: leadershipTitle.trim() || undefined,
       university,
       programme,
       mfaEnabled,
     };
     onUpdateUser(updated);
-    onNotify(`Identity profile updated as ${role.toUpperCase()} at ${university}`);
+    onNotify(`Identity profile updated as ${leadershipTitle || role.toUpperCase()} at ${university}`);
     onClose();
   };
 
@@ -177,13 +181,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onChange={(e) => setUniversity(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
               >
-                <option value="University of Dar es Salaam">University of Dar es Salaam (UDSM)</option>
-                <option value="Sokoine University of Agriculture">Sokoine University of Agriculture (SUA)</option>
-                <option value="University of Dodoma">University of Dodoma (UDOM)</option>
-                <option value="Muhimbili Univ of Health & Allied Sciences">MUHAS</option>
-                <option value="Kilimanjaro Christian Medical University">KCMUCo</option>
-                <option value="Mbeya University of Science & Tech">MUST</option>
-                <option value="State University of Zanzibar">SUZA</option>
+                {universities.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -198,6 +200,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Leadership / Academic Role Title (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Dean, Head of Department, Lecturer, Class Rep, Vice Chancellor..."
+              value={leadershipTitle}
+              onChange={(e) => setLeadershipTitle(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
+            />
           </div>
 
           {/* MFA & Security */}

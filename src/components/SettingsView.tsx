@@ -13,6 +13,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { User } from '../types';
+import { StorageService } from '../services/storageService';
 
 interface SettingsViewProps {
   currentUser: User;
@@ -29,8 +30,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onNotify,
   pendingSyncCount,
 }) => {
+  const [universityList, setUniversityList] = useState<string[]>(StorageService.getUniversities());
   const [university, setUniversity] = useState(currentUser.university);
+  const [newUniInput, setNewUniInput] = useState('');
+  const [showAddUni, setShowAddUni] = useState(false);
   const [programme, setProgramme] = useState(currentUser.programme);
+  const [leadershipTitle, setLeadershipTitle] = useState(currentUser.leadershipTitle || '');
   const [currentYear, setCurrentYear] = useState(currentUser.currentYear);
   const [totalYears, setTotalYears] = useState(currentUser.totalYears);
   const [academicYear, setAcademicYear] = useState('2026/27');
@@ -39,12 +44,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [catAlerts, setCatAlerts] = useState(true);
   const [paymentAlerts, setPaymentAlerts] = useState(true);
 
+  const handleAddCustomUni = () => {
+    if (!newUniInput.trim()) return;
+    const updated = StorageService.addUniversity(newUniInput.trim());
+    setUniversityList(updated);
+    setUniversity(newUniInput.trim());
+    setNewUniInput('');
+    setShowAddUni(false);
+    onNotify(`Added "${newUniInput.trim()}" to platform universities!`);
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     const updated: User = {
       ...currentUser,
       university,
       programme,
+      leadershipTitle: leadershipTitle.trim() || undefined,
       currentYear: Number(currentYear),
       totalYears: Number(totalYears),
     };
@@ -79,20 +95,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">University / College</label>
-                <select
-                  value={university}
-                  onChange={(e) => setUniversity(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
-                >
-                  <option value="University of Dar es Salaam">University of Dar es Salaam (UDSM)</option>
-                  <option value="Sokoine University of Agriculture">Sokoine University of Agriculture (SUA)</option>
-                  <option value="University of Dodoma">University of Dodoma (UDOM)</option>
-                  <option value="Muhimbili Univ of Health & Allied Sciences">MUHAS</option>
-                  <option value="Kilimanjaro Christian Medical University">KCMUCo</option>
-                  <option value="Mbeya University of Science & Tech">MUST</option>
-                  <option value="State University of Zanzibar">SUZA</option>
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">University / College</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUni(!showAddUni)}
+                    className="text-[11px] text-[#1e6fa8] font-bold hover:underline"
+                  >
+                    {showAddUni ? 'Choose Existing' : '+ Add Any College'}
+                  </button>
+                </div>
+
+                {!showAddUni ? (
+                  <select
+                    value={university}
+                    onChange={(e) => setUniversity(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
+                  >
+                    {universityList.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Type any university/college name..."
+                      value={newUniInput}
+                      onChange={(e) => setNewUniInput(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-[#1e6fa8]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomUni}
+                      className="px-3 py-2 bg-[#1e6fa8] text-white rounded-xl text-xs font-bold hover:bg-[#165582]"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -105,6 +148,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
                 />
               </div>
+            </div>
+
+            {/* Leadership & Announcement Authority Role Title */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Official Campus / Faculty Leadership Title (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Dean of Science, Head of Biostatistics, Class Representative, Student Leader..."
+                value={leadershipTitle}
+                onChange={(e) => setLeadershipTitle(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e6fa8]"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Shown when sending official targeted announcements to courses, years, or faculties.
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

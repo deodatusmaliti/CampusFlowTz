@@ -22,6 +22,8 @@ interface CoursesViewProps {
   onRemoveCourse: (id: string) => void;
   onNavigateToCommunity: (courseCode: string) => void;
   onNavigateToShare: (courseCode: string) => void;
+  onOpenCourseChat?: (course: Course) => void;
+  onNavigateToStudy?: (courseCode?: string) => void;
   onLoadMedicineDemo: () => void;
   onNotify: (msg: string) => void;
 }
@@ -33,6 +35,8 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
   onRemoveCourse,
   onNavigateToCommunity,
   onNavigateToShare,
+  onOpenCourseChat,
+  onNavigateToStudy,
   onLoadMedicineDemo,
   onNotify,
 }) => {
@@ -377,20 +381,40 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
               </div>
 
               {/* Bottom Actions */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                <button
-                  onClick={() => onNavigateToCommunity(course.code)}
-                  className="flex-1 py-2 px-3 rounded-xl bg-[#edf7f2] hover:bg-[#d8efe2] text-[#16845d] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" /> Course Community
-                </button>
-                <button
-                  onClick={() => onNavigateToShare(course.code)}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-                  title="Share Timetable"
-                >
-                  <Share2 className="w-4 h-4" />
-                </button>
+              <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onOpenCourseChat ? onOpenCourseChat(course) : onNavigateToCommunity(course.code)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-[#e6ad3d]" /> Course Mates Chat & Alerts
+                  </button>
+                  {onNavigateToStudy && (
+                    <button
+                      onClick={() => onNavigateToStudy(course.code)}
+                      className="py-2 px-3 rounded-xl bg-[#e5f2fb] hover:bg-[#d0e8f8] text-[#1e6fa8] text-xs font-bold flex items-center gap-1 transition-colors"
+                      title="Study Materials & Past Papers"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> Notes
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => onNavigateToCommunity(course.code)}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-[#edf7f2] hover:bg-[#d8efe2] text-[#16845d] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    Academic Community Space
+                  </button>
+                  <button
+                    onClick={() => onNavigateToShare(course.code)}
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+                    title="Share Timetable"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           );

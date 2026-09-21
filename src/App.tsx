@@ -10,24 +10,34 @@ import {
   MicroserviceMetric, 
   SystemLog, 
   TaskStatus,
-  EventCategory
+  EventCategory,
+  Announcement,
+  StudyResource,
+  ScientificBreakthrough,
+  TimetableSlot,
+  ManagedUser,
+  RolePermission
 } from './types';
 import { StorageService } from './services/storageService';
 import { 
   INITIAL_MICROSERVICES, 
-  INITIAL_COURSES 
+  INITIAL_COURSES,
+  INITIAL_TIMETABLE 
 } from './data/mockInitialData';
 
 import { Navigation, ActiveTab } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
 import { CalendarView } from './components/CalendarView';
 import { CoursesView } from './components/CoursesView';
+import { StudyResourcesView } from './components/StudyResourcesView';
 import { TasksView } from './components/TasksView';
 import { GpaCalculatorView } from './components/GpaCalculatorView';
 import { CommunitiesView } from './components/CommunitiesView';
 import { PersonalPlansView } from './components/PersonalPlansView';
 import { PaymentsView } from './components/PaymentsView';
 import { TimetableShareView } from './components/TimetableShareView';
+import { TimetableView } from './components/TimetableView';
+import { UserManagementView } from './components/UserManagementView';
 import { SystemArchitectureView } from './components/SystemArchitectureView';
 import { SettingsView } from './components/SettingsView';
 
@@ -35,6 +45,11 @@ import { AddEventModal } from './components/AddEventModal';
 import { AddTaskModal } from './components/AddTaskModal';
 import { AuthModal } from './components/AuthModal';
 import { NotificationCenterModal } from './components/NotificationCenterModal';
+import { UniversityPickerModal } from './components/UniversityPickerModal';
+import { CreateAnnouncementModal } from './components/CreateAnnouncementModal';
+import { CourseSpaceChatModal } from './components/CourseSpaceChatModal';
+import { TimetableImportModal } from './components/TimetableImportModal';
+import { AIChatAssistantModal } from './components/AIChatAssistantModal';
 
 export default function App() {
   // Navigation & Modals
@@ -44,6 +59,13 @@ export default function App() {
   const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [isUniversityPickerOpen, setIsUniversityPickerOpen] = useState(false);
+  const [isCreateAnnouncementOpen, setIsCreateAnnouncementOpen] = useState(false);
+  const [isCourseChatOpen, setIsCourseChatOpen] = useState(false);
+  const [activeChatCourse, setActiveChatCourse] = useState<Course | null>(null);
+  const [isTimetableImportOpen, setIsTimetableImportOpen] = useState(false);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [aiChatPrompt, setAiChatPrompt] = useState<string | undefined>(undefined);
 
   // Application Data States
   const [currentUser, setCurrentUser] = useState<User>(() => StorageService.getUser());
@@ -55,6 +77,12 @@ export default function App() {
   const [notifications, setNotifications] = useState<PushNotification[]>(() => StorageService.getNotifications());
   const [logs, setLogs] = useState<SystemLog[]>(() => StorageService.getLogs());
   const [metrics] = useState<MicroserviceMetric[]>(INITIAL_MICROSERVICES);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => StorageService.getAnnouncements());
+  const [studyResources, setStudyResources] = useState<StudyResource[]>(() => StorageService.getStudyResources());
+  const [breakthroughs, setBreakthroughs] = useState<ScientificBreakthrough[]>(() => StorageService.getBreakthroughs());
+  const [timetable, setTimetable] = useState<TimetableSlot[]>(() => StorageService.getTimetable());
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>(() => StorageService.getManagedUsers());
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => StorageService.getRolePermissions());
 
   // Network & Sync State
   const [isOffline, setIsOffline] = useState<boolean>(() => {
@@ -396,7 +424,7 @@ export default function App() {
 
   const handleAddPresetActivity = (
     title: string, 
-    category: 'sport' | 'society' | 'personal', 
+    category: EventCategory, 
     location: string, 
     time: string
   ) => {
@@ -501,15 +529,131 @@ export default function App() {
     setPayments(StorageService.getPayments());
     setNotifications(StorageService.getNotifications());
     setLogs(StorageService.getLogs());
+    setAnnouncements(StorageService.getAnnouncements());
+    setStudyResources(StorageService.getStudyResources());
+    setBreakthroughs(StorageService.getBreakthroughs());
     setPendingSyncCount(0);
     showToast('Application state reset to initial demo values.');
+  };
+
+  // University Picker Handler
+  const handleSelectUniversity = (uniName: string) => {
+    const updatedUser = { ...currentUser, university: uniName };
+    setCurrentUser(updatedUser);
+    StorageService.saveUser(updatedUser);
+    StorageService.addLog('auth-service', 'audit', `University updated to: ${uniName}`);
+    setLogs(StorageService.getLogs());
+    showToast(`Campus switched to "${uniName}". Timetable and resources active.`);
+  };
+
+  // Announcement Handlers
+  const handlePublishAnnouncement = (announcementData: Omit<Announcement, 'id' | 'timestamp' | 'acknowledged'>) => {
+    const newAnnouncement: Announcement = {
+      ...announcementData,
+      id: 'ann_' + Date.now(),
+      timestamp: 'Just now',
+      acknowledged: false,
+    };
+    const updated = [newAnnouncement, ...announcements];
+    setAnnouncements(updated);
+    StorageService.saveAnnouncements(updated);
+
+    // Also send push notification
+    const notif: PushNotification = {
+      id: 'notif_' + Date.now(),
+      title: `${newAnnouncement.priority === 'urgent' ? '🚨 URGENT: ' : ''}${newAnnouncement.title}`,
+      message: `${newAnnouncement.authorName} (${newAnnouncement.authorRole}): ${newAnnouncement.content}`,
+      timestamp: 'Just now',
+      read: false,
+      type: newAnnouncement.priority === 'urgent' ? 'alert' : 'academic',
+    };
+    const updatedNotifs = [notif, ...notifications];
+    setNotifications(updatedNotifs);
+    StorageService.saveNotifications(updatedNotifs);
+
+    StorageService.addLog('broadcast-service', 'audit', `Announcement broadcast to ${newAnnouncement.targetAudience.label}: "${newAnnouncement.title}"`);
+    setLogs(StorageService.getLogs());
+    showToast(`Announcement broadcast to ${newAnnouncement.targetAudience.label}!`);
+  };
+
+  const handleAcknowledgeAnnouncement = (id: string) => {
+    const updated = StorageService.acknowledgeAnnouncement(id);
+    setAnnouncements(updated);
+    showToast('Announcement marked as acknowledged.');
+  };
+
+  const handleOpenCourseChat = (course: Course) => {
+    setActiveChatCourse(course);
+    setIsCourseChatOpen(true);
+  };
+
+  const handleShareToCourseChat = (courseCode: string, text: string) => {
+    const comm = communities.find(c => c.courseCode.toLowerCase() === courseCode.toLowerCase());
+    if (comm) {
+      handleSendMessage(comm.id, text);
+    }
+    showToast(`Shared alert to ${courseCode} space!`);
+  };
+
+  // Timetable Handlers
+  const handleImportTimetableSlots = (newSlots: TimetableSlot[], mode: 'replace' | 'merge') => {
+    let updated: TimetableSlot[];
+    if (mode === 'replace') {
+      updated = newSlots;
+    } else {
+      const existingKeySet = new Set(timetable.map(s => `${s.day}_${s.startTime}_${s.courseCode}`));
+      const filtered = newSlots.filter(s => !existingKeySet.has(`${s.day}_${s.startTime}_${s.courseCode}`));
+      updated = [...timetable, ...filtered];
+    }
+    setTimetable(updated);
+    StorageService.saveTimetable(updated);
+    showToast(`Successfully saved ${newSlots.length} timetable slot(s).`);
+  };
+
+  const handleDeleteTimetableSlot = (id: string) => {
+    const updated = timetable.filter(s => s.id !== id);
+    setTimetable(updated);
+    StorageService.saveTimetable(updated);
+    showToast('Timetable slot removed.');
+  };
+
+  const handleResetSampleTimetable = () => {
+    setTimetable(INITIAL_TIMETABLE);
+    StorageService.saveTimetable(INITIAL_TIMETABLE);
+    showToast('Reset to university standard timetable schedule.');
+  };
+
+  // User Management & RBAC Handlers
+  const handleUpdateManagedUser = (user: ManagedUser) => {
+    const updated = managedUsers.map(u => u.id === user.id ? user : u);
+    setManagedUsers(updated);
+    StorageService.saveManagedUsers(updated);
+    showToast(`Updated permissions for ${user.name}.`);
+  };
+
+  const handleAddManagedUser = (user: ManagedUser) => {
+    const updated = [user, ...managedUsers];
+    setManagedUsers(updated);
+    StorageService.saveManagedUsers(updated);
+    showToast(`User ${user.name} added to institutional directory.`);
+  };
+
+  const handleUpdateRolePermissions = (perms: RolePermission[]) => {
+    setRolePermissions(perms);
+    StorageService.saveRolePermissions(perms);
+    showToast('Role permissions matrix updated.');
+  };
+
+  const handleOpenAIChatWithPrompt = (prompt?: string) => {
+    setAiChatPrompt(prompt);
+    setIsAIChatOpen(true);
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="min-h-screen bg-[#f5f8fb] text-[#182530] font-sans selection:bg-[#1e6fa8] selection:text-white pb-12">
-      {/* Top Navbar & Sidebar Layout */}
+      {/* Top Navbar & Integrated Desktop Sidebar Layout */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -520,144 +664,194 @@ export default function App() {
         }}
         onOpenNotifications={() => setNotificationsOpen(true)}
         onOpenAuth={() => setAuthOpen(true)}
+        onOpenAIChat={() => handleOpenAIChatWithPrompt()}
         unreadNotificationsCount={unreadCount}
         isOffline={isOffline}
         onToggleOffline={handleToggleOffline}
         pendingSyncCount={pendingSyncCount}
         onSyncNow={handleSyncNow}
         isSyncing={isSyncing}
-      />
+        announcements={announcements}
+        onOpenCreateAnnouncement={() => setIsCreateAnnouncementOpen(true)}
+        onAcknowledgeAnnouncement={handleAcknowledgeAnnouncement}
+        onOpenUniversityPicker={() => setIsUniversityPickerOpen(true)}
+      >
+        {/* Child views start immediately at the top column with 0px wasted blank space */}
+        {activeTab === 'dashboard' && (
+          <DashboardView
+            currentUser={currentUser}
+            courses={courses}
+            events={events}
+            tasks={tasks}
+            announcements={announcements}
+            breakthroughs={breakthroughs}
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenAddEvent={() => {
+              setAddEventInitialDate(undefined);
+              setAddEventOpen(true);
+            }}
+            onOpenAddTask={() => setAddTaskOpen(true)}
+            onCompleteTask={(taskId) => {
+              handleUpdateTaskStatus(taskId, 'submitted');
+              showToast('Assessment marked as submitted.');
+            }}
+            onOpenCreateAnnouncement={() => setIsCreateAnnouncementOpen(true)}
+            onOpenUniversityPicker={() => setIsUniversityPickerOpen(true)}
+          />
+        )}
 
-      {/* Main View Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-2">
-        <div className="lg:pl-64">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              currentUser={currentUser}
-              courses={courses}
-              events={events}
-              tasks={tasks}
-              onNavigate={(tab) => {
-                setActiveTab(tab);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onOpenAddEvent={() => {
-                setAddEventInitialDate(undefined);
-                setAddEventOpen(true);
-              }}
-              onOpenAddTask={() => setAddTaskOpen(true)}
-              onCompleteTask={(taskId) => {
-                handleUpdateTaskStatus(taskId, 'submitted');
-                showToast('Assessment marked as submitted.');
-              }}
-            />
-          )}
+        {activeTab === 'timetable' && (
+          <TimetableView
+            user={currentUser}
+            timetable={timetable}
+            onOpenImportModal={() => setIsTimetableImportOpen(true)}
+            onOpenCourseChat={(code) => {
+              const c = courses.find(cr => cr.code.toLowerCase() === code.toLowerCase()) || courses[0];
+              if (c) handleOpenCourseChat(c);
+            }}
+            onAddCalendarEvent={(event) => {
+              handleSaveEvent(event);
+            }}
+            onOpenAIAssistant={handleOpenAIChatWithPrompt}
+            onDeleteSlot={handleDeleteTimetableSlot}
+            onResetSampleTimetable={handleResetSampleTimetable}
+          />
+        )}
 
-          {activeTab === 'calendar' && (
-            <CalendarView
-              events={events}
-              courses={courses}
-              onOpenAddEvent={(date) => {
-                setAddEventInitialDate(date);
-                setAddEventOpen(true);
-              }}
-              onDeleteEvent={handleDeleteEvent}
-              onNotify={showToast}
-            />
-          )}
+        {activeTab === 'calendar' && (
+          <CalendarView
+            events={events}
+            courses={courses}
+            onOpenAddEvent={(date) => {
+              setAddEventInitialDate(date);
+              setAddEventOpen(true);
+            }}
+            onDeleteEvent={handleDeleteEvent}
+            onNotify={showToast}
+          />
+        )}
 
-          {activeTab === 'courses' && (
-            <CoursesView
-              courses={courses}
-              currentUser={currentUser}
-              onAddCourse={handleAddCourse}
-              onRemoveCourse={handleRemoveCourse}
-              onNavigateToCommunity={(courseCode) => {
-                setActiveTab('community');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToShare={(courseCode) => {
-                setActiveTab('share');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onLoadMedicineDemo={handleLoadMedicineDemo}
-              onNotify={showToast}
-            />
-          )}
+        {activeTab === 'courses' && (
+          <CoursesView
+            courses={courses}
+            currentUser={currentUser}
+            onAddCourse={handleAddCourse}
+            onRemoveCourse={handleRemoveCourse}
+            onNavigateToCommunity={(courseCode) => {
+              setActiveTab('community');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToShare={(courseCode) => {
+              setActiveTab('share');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenCourseChat={handleOpenCourseChat}
+            onNavigateToStudy={(courseCode) => {
+              setActiveTab('study');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onLoadMedicineDemo={handleLoadMedicineDemo}
+            onNotify={showToast}
+          />
+        )}
 
-          {activeTab === 'tasks' && (
-            <TasksView
-              tasks={tasks}
-              onOpenAddTask={() => setAddTaskOpen(true)}
-              onUpdateStatus={handleUpdateTaskStatus}
-              onDeleteTask={handleDeleteTask}
-              onNotify={showToast}
-            />
-          )}
+        {activeTab === 'study' && (
+          <StudyResourcesView
+            currentUser={currentUser}
+            courses={courses}
+            resources={studyResources}
+            breakthroughs={breakthroughs}
+            onShareToCourseChat={handleShareToCourseChat}
+            onNotify={showToast}
+          />
+        )}
 
-          {activeTab === 'gpa' && <GpaCalculatorView />}
+        {activeTab === 'tasks' && (
+          <TasksView
+            tasks={tasks}
+            onOpenAddTask={() => setAddTaskOpen(true)}
+            onUpdateStatus={handleUpdateTaskStatus}
+            onDeleteTask={handleDeleteTask}
+            onNotify={showToast}
+          />
+        )}
 
-          {activeTab === 'community' && (
-            <CommunitiesView
-              communities={communities}
-              currentUser={currentUser}
-              onSendMessage={handleSendMessage}
-              onCreateCommunity={handleCreateCommunity}
-              onNotify={showToast}
-            />
-          )}
+        {activeTab === 'gpa' && <GpaCalculatorView />}
 
-          {activeTab === 'social' && (
-            <PersonalPlansView
-              onOpenAddEvent={() => {
-                setAddEventInitialDate(undefined);
-                setAddEventOpen(true);
-              }}
-              onAddPresetActivity={handleAddPresetActivity}
-            />
-          )}
+        {activeTab === 'community' && (
+          <CommunitiesView
+            communities={communities}
+            currentUser={currentUser}
+            onSendMessage={handleSendMessage}
+            onCreateCommunity={handleCreateCommunity}
+            onNotify={showToast}
+          />
+        )}
 
-          {activeTab === 'payments' && (
-            <PaymentsView
-              payments={payments}
-              onAddPayment={handleAddPayment}
-              onNotify={showToast}
-            />
-          )}
+        {activeTab === 'users' && (
+          <UserManagementView
+            currentUser={currentUser}
+            managedUsers={managedUsers}
+            rolePermissions={rolePermissions}
+            onUpdateUser={handleUpdateManagedUser}
+            onUpdateRolePermissions={handleUpdateRolePermissions}
+            onAddUser={handleAddManagedUser}
+          />
+        )}
 
-          {activeTab === 'share' && (
-            <TimetableShareView
-              courses={courses}
-              events={events}
-              onNotify={showToast}
-            />
-          )}
+        {activeTab === 'social' && (
+          <PersonalPlansView
+            onOpenAddEvent={() => {
+              setAddEventInitialDate(undefined);
+              setAddEventOpen(true);
+            }}
+            onAddPresetActivity={handleAddPresetActivity}
+          />
+        )}
 
-          {activeTab === 'architecture' && (
-            <SystemArchitectureView
-              metrics={metrics}
-              logs={logs}
-              onTriggerLoadTest={handleTriggerLoadTest}
-              isLoadTesting={isLoadTesting}
-              loadTestResults={loadTestResults}
-            />
-          )}
+        {activeTab === 'payments' && (
+          <PaymentsView
+            payments={payments}
+            onAddPayment={handleAddPayment}
+            onNotify={showToast}
+          />
+        )}
 
-          {activeTab === 'settings' && (
-            <SettingsView
-              currentUser={currentUser}
-              onUpdateUser={(updated) => {
-                setCurrentUser(updated);
-                StorageService.saveUser(updated);
-                setPendingSyncCount(StorageService.getSyncQueue().filter(q => q.status === 'pending').length);
-              }}
-              onResetDefaults={handleResetDefaults}
-              onNotify={showToast}
-              pendingSyncCount={pendingSyncCount}
-            />
-          )}
-        </div>
-      </main>
+        {activeTab === 'share' && (
+          <TimetableShareView
+            courses={courses}
+            events={events}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'architecture' && (
+          <SystemArchitectureView
+            metrics={metrics}
+            logs={logs}
+            onTriggerLoadTest={handleTriggerLoadTest}
+            isLoadTesting={isLoadTesting}
+            loadTestResults={loadTestResults}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsView
+            currentUser={currentUser}
+            onUpdateUser={(updated) => {
+              setCurrentUser(updated);
+              StorageService.saveUser(updated);
+              setPendingSyncCount(StorageService.getSyncQueue().filter(q => q.status === 'pending').length);
+            }}
+            onResetDefaults={handleResetDefaults}
+            onNotify={showToast}
+            pendingSyncCount={pendingSyncCount}
+          />
+        )}
+      </Navigation>
 
       {/* Global Interactive Modals */}
       <AddEventModal
@@ -695,6 +889,82 @@ export default function App() {
         onClearAll={handleClearAllNotifications}
         onSendTestNotification={handleSendTestPush}
         onRequestBrowserPermission={handleRequestBrowserPermission}
+      />
+
+      {/* Dynamic University & College Directory Modal */}
+      <UniversityPickerModal
+        isOpen={isUniversityPickerOpen}
+        onClose={() => setIsUniversityPickerOpen(false)}
+        currentUniversity={currentUser.university}
+        onSelectUniversity={handleSelectUniversity}
+        onNotify={showToast}
+      />
+
+      {/* Targeted Role-Based Campus Broadcast Modal */}
+      <CreateAnnouncementModal
+        isOpen={isCreateAnnouncementOpen}
+        onClose={() => setIsCreateAnnouncementOpen(false)}
+        currentUser={currentUser}
+        courses={courses}
+        onBroadcast={handlePublishAnnouncement}
+        onNotify={showToast}
+      />
+
+      {/* Course-Specific Space Chat & Urgent Alerts Modal */}
+      {activeChatCourse && (
+        <CourseSpaceChatModal
+          isOpen={isCourseChatOpen}
+          onClose={() => setIsCourseChatOpen(false)}
+          course={activeChatCourse}
+          community={communities.find(c => c.courseCode.toLowerCase() === activeChatCourse.code.toLowerCase())}
+          currentUser={currentUser}
+          onSendMessage={(courseCode, content, isAlert, alertType) => {
+            const comm = communities.find(c => c.courseCode.toLowerCase() === courseCode.toLowerCase());
+            if (comm) {
+              const newMsg = {
+                id: 'msg_' + Date.now(),
+                authorName: currentUser.name,
+                authorRole: currentUser.leadershipTitle || (currentUser.role === 'admin' ? 'Administrator' : currentUser.role === 'lecturer' ? 'Lecturer' : 'Student'),
+                content,
+                timestamp: 'Just now',
+                likes: 0,
+                isPinned: Boolean(isAlert),
+                isAlert: Boolean(isAlert),
+                alertType,
+              };
+              const updated = communities.map(c => c.id === comm.id ? { ...c, messages: [...c.messages, newMsg] } : c);
+              setCommunities(updated);
+              StorageService.saveCommunities(updated);
+            }
+          }}
+          onAddEventFromAlert={(title, location, time) => {
+            handleAddPresetActivity(title, 'lecture', location, time);
+          }}
+          onNotify={showToast}
+        />
+      )}
+
+      {/* Interactive Timetable Import Modal (CSV, AI Photo Scan, Manual) */}
+      <TimetableImportModal
+        isOpen={isTimetableImportOpen}
+        onClose={() => setIsTimetableImportOpen(false)}
+        onImportSlots={handleImportTimetableSlots}
+        currentCourseCodes={courses.map(c => c.code)}
+      />
+
+      {/* AI Academic & Timetable Assistant Modal */}
+      <AIChatAssistantModal
+        isOpen={isAIChatOpen}
+        onClose={() => {
+          setIsAIChatOpen(false);
+          setAiChatPrompt(undefined);
+        }}
+        user={currentUser}
+        initialPrompt={aiChatPrompt}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab as ActiveTab);
+          setIsAIChatOpen(false);
+        }}
       />
 
       {/* Persistent Toast notification banner */}

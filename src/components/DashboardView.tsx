@@ -27,7 +27,7 @@ import {
   Bar, 
   Legend 
 } from 'recharts';
-import { Course, CalendarEvent, Task, User as UserType } from '../types';
+import { Course, CalendarEvent, Task, User as UserType, Announcement, ScientificBreakthrough } from '../types';
 import { ActiveTab } from './Navigation';
 
 interface DashboardViewProps {
@@ -35,10 +35,14 @@ interface DashboardViewProps {
   courses: Course[];
   events: CalendarEvent[];
   tasks: Task[];
+  announcements?: Announcement[];
+  breakthroughs?: ScientificBreakthrough[];
   onNavigate: (tab: ActiveTab) => void;
   onOpenAddEvent: () => void;
   onOpenAddTask: () => void;
   onCompleteTask: (taskId: string) => void;
+  onOpenCreateAnnouncement?: () => void;
+  onOpenUniversityPicker?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -46,10 +50,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   courses,
   events,
   tasks,
+  announcements = [],
+  breakthroughs = [],
   onNavigate,
   onOpenAddEvent,
   onOpenAddTask,
   onCompleteTask,
+  onOpenCreateAnnouncement,
+  onOpenUniversityPicker,
 }) => {
   // Calculations
   const totalCredits = courses.reduce((acc, c) => acc + c.credits, 0);
@@ -88,11 +96,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Urgent Announcement Alert Strip (if any urgent alert exists) */}
+      {announcements.some(a => (a.priority === 'urgent' || a.priority === 'venue_change') && !a.acknowledged) && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-red-500/10 to-amber-500/15 border-2 border-amber-400/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-sm shrink-0">
+              🚨
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-black tracking-wider text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded">
+                Live Campus Alert
+              </span>
+              <p className="text-xs sm:text-sm font-extrabold text-[#102d4f] mt-0.5">
+                {announcements.find(a => (a.priority === 'urgent' || a.priority === 'venue_change') && !a.acknowledged)?.title}
+              </p>
+              <p className="text-xs text-slate-600 line-clamp-1">
+                {announcements.find(a => (a.priority === 'urgent' || a.priority === 'venue_change') && !a.acknowledged)?.content}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            {onOpenCreateAnnouncement && (
+              <button
+                onClick={onOpenCreateAnnouncement}
+                className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-50 text-xs font-bold transition-colors"
+              >
+                Broadcast Notice
+              </button>
+            )}
+            <button
+              onClick={() => onNavigate('timetable')}
+              className="px-3.5 py-1.5 rounded-lg bg-[#102d4f] hover:bg-[#1a406c] text-white text-xs font-bold transition-colors shadow-2xs"
+            >
+              Check Timetable
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#102d4f] via-[#1a4b7c] to-[#1e6fa8] p-6 sm:p-8 text-white shadow-lg">
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-[#e6ad3d] mb-3">
-            <Sparkles className="w-3.5 h-3.5" /> High-Performance Higher Ed Portal · Tanzania
+            <Sparkles className="w-3.5 h-3.5" /> High-Performance Higher Ed Portal · {currentUser.university}
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight">
             Plan your semester with total confidence.
@@ -103,26 +150,43 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="mt-6 flex flex-wrap gap-2.5 sm:gap-3">
             <button
-              id="hero-view-courses-btn"
-              onClick={() => onNavigate('courses')}
+              id="hero-view-timetable-btn"
+              onClick={() => onNavigate('timetable')}
               className="px-4 py-2.5 rounded-xl bg-[#e6ad3d] hover:bg-[#f3b844] text-[#102d4f] text-xs sm:text-sm font-extrabold shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
             >
+              <Clock className="w-4 h-4" /> Semester Timetable
+            </button>
+            <button
+              id="hero-view-courses-btn"
+              onClick={() => onNavigate('courses')}
+              className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-1.5 backdrop-blur-xs border border-white/20"
+            >
               <BookOpen className="w-4 h-4" /> View My Courses
+            </button>
+            <button
+              id="hero-study-feed-btn"
+              onClick={() => onNavigate('study')}
+              className="px-4 py-2.5 rounded-xl bg-[#1e6fa8] hover:bg-[#2583c4] text-white text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+            >
+              <Sparkles className="w-4 h-4 text-[#e6ad3d]" /> Study & Innovations
             </button>
             <button
               id="hero-check-gpa-btn"
               onClick={() => onNavigate('gpa')}
               className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-bold backdrop-blur-xs border border-white/20 transition-all flex items-center gap-1.5"
             >
-              <TrendingUp className="w-4 h-4" /> Check GPA Projections
+              <TrendingUp className="w-4 h-4" /> Check GPA
             </button>
-            <button
-              id="hero-add-event-btn"
-              onClick={onOpenAddEvent}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> Add Event to Schedule
-            </button>
+            {onOpenUniversityPicker && (
+              <button
+                id="hero-change-uni-btn"
+                onClick={onOpenUniversityPicker}
+                className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition-all"
+                title="Change or Add University"
+              >
+                🏫 Switch Campus
+              </button>
+            )}
           </div>
         </div>
 
@@ -394,6 +458,67 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             Manage All Assessments & Rubrics
           </button>
+        </div>
+      </div>
+
+      {/* Live Science, Space Tech & Telemedicine Discovery Feed */}
+      <div className="bg-white rounded-3xl p-6 border border-[#d9e3ea] shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-amber-50 text-[#e6ad3d]">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <h2 className="text-lg font-black text-[#102d4f]">
+                Live Scientific & Technological Breakthroughs
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Live scientific developments & telemedicine updates matched to your academic courses
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('study')}
+            className="text-xs font-extrabold text-[#1e6fa8] hover:text-[#165582] flex items-center gap-1 self-start sm:self-auto"
+          >
+            Explore All Materials & Feeds →
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {breakthroughs.slice(0, 2).map((item) => (
+            <div
+              key={item.id}
+              className="p-4 rounded-2xl bg-[#f8fafc] border border-slate-200/80 hover:border-[#1e6fa8] transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e5f2fb] text-[#1e6fa8]">
+                    {item.field}
+                  </span>
+                  <span className="text-[11px] text-slate-400">{item.publishedDate}</span>
+                </div>
+                <h3 className="text-sm font-extrabold text-[#102d4f] mt-2 leading-snug">
+                  {item.headline}
+                </h3>
+                <p className="text-xs text-slate-600 mt-1.5 leading-relaxed line-clamp-2">
+                  {item.summary}
+                </p>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+                <span className="text-[10px] text-slate-500 italic">
+                  Course discussion: "{item.relevantCourses.join(', ')}"
+                </span>
+                <button
+                  onClick={() => onNavigate('study')}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[#102d4f] text-[11px] font-bold hover:bg-slate-50"
+                >
+                  Read & Discuss
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
