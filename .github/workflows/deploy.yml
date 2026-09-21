@@ -32,6 +32,8 @@ jobs:
 
       - name: Build static site
         run: npm run build
+        env:
+          BASE_PATH: /CampusFlowTz/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: './',
+    base: process.env.BASE_PATH || (process.env.GITHUB_ACTIONS ? '/CampusFlowTz/' : './'),
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
