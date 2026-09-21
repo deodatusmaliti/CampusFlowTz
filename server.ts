@@ -206,19 +206,30 @@ Current Student Context:
 
 Provide concise, friendly, practical academic advice, clear venue directions, and study recommendations. Keep formatting clean with markdown bullet points.`;
 
-      const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          { role: 'user', parts: [{ text: `${systemInstruction}\n\nStudent Question: ${message}` }] }
-        ],
-      });
+      let response: any;
+      try {
+        response = await client.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: [
+            { role: 'user', parts: [{ text: `${systemInstruction}\n\nStudent Question: ${message}` }] }
+          ],
+        });
+      } catch (primaryModelErr) {
+        console.warn("Primary model gemini-3.8-flash failed, trying gemini-3.6-flash:", primaryModelErr);
+        response = await client.models.generateContent({
+          model: 'gemini-3.6-flash',
+          contents: [
+            { role: 'user', parts: [{ text: `${systemInstruction}\n\nStudent Question: ${message}` }] }
+          ],
+        });
+      }
 
       res.json({
         reply: response.text || generateLocalSmartReply(message, studentContext),
         mode: 'gemini_cloud',
       });
     } catch (error: any) {
-      console.error("AI Chat error:", error);
+      console.warn("AI Chat fallback triggered:", error?.message || error);
       res.json({
         reply: generateLocalSmartReply(req.body?.message, req.body?.studentContext),
         mode: 'smart_local_fallback',
@@ -279,10 +290,19 @@ Return ONLY the raw JSON array, without markdown backticks.`;
         return res.json({ slots: generateFallbackParsedSlots(), mode: 'default' });
       }
 
-      const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: parts,
-      });
+      let response: any;
+      try {
+        response = await client.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: parts,
+        });
+      } catch (primaryErr) {
+        console.warn("Primary model gemini-3.8-flash failed, trying gemini-3.6-flash:", primaryErr);
+        response = await client.models.generateContent({
+          model: 'gemini-3.6-flash',
+          contents: parts,
+        });
+      }
 
       const rawText = response.text?.trim() || '[]';
       const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -293,7 +313,7 @@ Return ONLY the raw JSON array, without markdown backticks.`;
         mode: 'gemini_ocr',
       });
     } catch (error: any) {
-      console.error("AI Timetable parse error:", error);
+      console.warn("AI Timetable parse fallback triggered:", error?.message || error);
       res.json({
         slots: generateFallbackParsedSlots(req.body?.textData),
         mode: 'smart_parser_fallback',
