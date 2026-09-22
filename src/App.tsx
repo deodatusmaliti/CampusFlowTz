@@ -50,6 +50,13 @@ import { CreateAnnouncementModal } from './components/CreateAnnouncementModal';
 import { CourseSpaceChatModal } from './components/CourseSpaceChatModal';
 import { TimetableImportModal } from './components/TimetableImportModal';
 import { AIChatAssistantModal } from './components/AIChatAssistantModal';
+import { FeedStoryModal } from './components/FeedStoryModal';
+import { ImminentLectureModal } from './components/ImminentLectureModal';
+import { TimezoneSettingsModal } from './components/TimezoneSettingsModal';
+import { FeedInfoModal } from './components/FeedInfoModal';
+import { AIService } from './services/aiService';
+import { ImminentLectureAlert } from './types';
+import { soundAlerts } from './services/soundAlertService';
 
 export default function App() {
   // Navigation & Modals
@@ -66,6 +73,14 @@ export default function App() {
   const [isTimetableImportOpen, setIsTimetableImportOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [aiChatPrompt, setAiChatPrompt] = useState<string | undefined>(undefined);
+  const [selectedFeedStory, setSelectedFeedStory] = useState<ScientificBreakthrough | null>(null);
+  const [isFeedStoryOpen, setIsFeedStoryOpen] = useState(false);
+  const [isTimezoneModalOpen, setIsTimezoneModalOpen] = useState(false);
+  const [isFeedInfoModalOpen, setIsFeedInfoModalOpen] = useState(false);
+  const [isRefreshingFeeds, setIsRefreshingFeeds] = useState(false);
+  const [feedMetadata, setFeedMetadata] = useState(() => StorageService.getFeedMetadata());
+  const [imminentAlert, setImminentAlert] = useState<ImminentLectureAlert | null>(null);
+  const [isImminentAlertOpen, setIsImminentAlertOpen] = useState(false);
 
   // Application Data States
   const [currentUser, setCurrentUser] = useState<User>(() => StorageService.getUser());
@@ -649,6 +664,72 @@ export default function App() {
     setIsAIChatOpen(true);
   };
 
+  const handleOpenFeedStory = (story: ScientificBreakthrough) => {
+    setSelectedFeedStory(story);
+    setIsFeedStoryOpen(true);
+  };
+
+  const handleRefreshFeeds = async (category?: string) => {
+    setIsRefreshingFeeds(true);
+    try {
+      const subject = category && category !== 'all' && category !== 'recommended' 
+        ? category 
+        : currentUser.subjectCategory || 'science';
+      
+      const res = await AIService.fetchPersonalizedFeed({
+        programme: currentUser.programme,
+        subjectCategory: subject,
+        courses: courses.map(c => c.code),
+        limit: 8
+      });
+
+      if (res.items && res.items.length > 0) {
+        setBreakthroughs(res.items);
+        StorageService.saveBreakthroughs(res.items);
+        const meta = {
+          lastFetched: Date.now(),
+          mode: res.mode,
+          activeCategory: subject,
+        };
+        setFeedMetadata(meta);
+        StorageService.saveFeedMetadata(meta);
+        showToast(`Synced ${res.items.length} academic feeds (${res.mode === 'gemini_ai_live' ? 'Live Gemini AI' : 'Verified Syllabus'}).`);
+      } else {
+        showToast('Feeds are currently up-to-date.');
+      }
+    } catch {
+      showToast('Offline cache active. Using pre-loaded syllabus stories.');
+    } finally {
+      setIsRefreshingFeeds(false);
+    }
+  };
+
+  // Auto-fetch personalized feeds if older than 3 hours or empty
+  useEffect(() => {
+    const meta = StorageService.getFeedMetadata();
+    const THREE_HOURS = 3 * 60 * 60 * 1000;
+    if (!meta.lastFetched || Date.now() - meta.lastFetched > THREE_HOURS || breakthroughs.length === 0) {
+      handleRefreshFeeds();
+    }
+  }, [currentUser.programme, currentUser.subjectCategory]);
+
+  const handleEnrollInCourse = (courseToEnroll: Course) => {
+    if (!courses.some(c => c.code.trim().toLowerCase() === courseToEnroll.code.trim().toLowerCase())) {
+      const updated = [...courses, courseToEnroll];
+      setCourses(updated);
+      StorageService.saveCourses(updated);
+      showToast(`Enrolled in ${courseToEnroll.code}: ${courseToEnroll.title}! Course space unlocked.`);
+    } else {
+      showToast(`Already registered in ${courseToEnroll.code}.`);
+    }
+  };
+
+  const handleTriggerImminentLectureAlert = (alert: ImminentLectureAlert) => {
+    setImminentAlert(alert);
+    setIsImminentAlertOpen(true);
+    soundAlerts.playLectureChime();
+  };
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -675,6 +756,7 @@ export default function App() {
         onOpenCreateAnnouncement={() => setIsCreateAnnouncementOpen(true)}
         onAcknowledgeAnnouncement={handleAcknowledgeAnnouncement}
         onOpenUniversityPicker={() => setIsUniversityPickerOpen(true)}
+        onOpenTimezoneSettings={() => setIsTimezoneModalOpen(true)}
       >
         {/* Child views start immediately at the top column with 0px wasted blank space */}
         {activeTab === 'dashboard' && (
@@ -700,6 +782,13 @@ export default function App() {
             }}
             onOpenCreateAnnouncement={() => setIsCreateAnnouncementOpen(true)}
             onOpenUniversityPicker={() => setIsUniversityPickerOpen(true)}
+            onOpenFeedStory={handleOpenFeedStory}
+            onRefreshFeeds={handleRefreshFeeds}
+            isRefreshingFeeds={isRefreshingFeeds}
+            lastFeedFetched={feedMetadata.lastFetched}
+            feedMode={feedMetadata.mode}
+            onOpenFeedInfo={() => setIsFeedInfoModalOpen(true)}
+            onOpenTimezoneSettings={() => setIsTimezoneModalOpen(true)}
           />
         )}
 
@@ -765,6 +854,7 @@ export default function App() {
             resources={studyResources}
             breakthroughs={breakthroughs}
             onShareToCourseChat={handleShareToCourseChat}
+            onOpenFeedStory={handleOpenFeedStory}
             onNotify={showToast}
           />
         )}
@@ -785,8 +875,10 @@ export default function App() {
           <CommunitiesView
             communities={communities}
             currentUser={currentUser}
+            courses={courses}
             onSendMessage={handleSendMessage}
             onCreateCommunity={handleCreateCommunity}
+            onEnrollInCourse={handleEnrollInCourse}
             onNotify={showToast}
           />
         )}
@@ -918,6 +1010,8 @@ export default function App() {
           course={activeChatCourse}
           community={communities.find(c => c.courseCode.toLowerCase() === activeChatCourse.code.toLowerCase())}
           currentUser={currentUser}
+          courses={courses}
+          onEnrollInCourse={handleEnrollInCourse}
           onSendMessage={(courseCode, content, isAlert, alertType) => {
             const comm = communities.find(c => c.courseCode.toLowerCase() === courseCode.toLowerCase());
             if (comm) {
@@ -944,6 +1038,27 @@ export default function App() {
         />
       )}
 
+      {/* Feed Story Detail Modal */}
+      <FeedStoryModal
+        isOpen={isFeedStoryOpen}
+        onClose={() => setIsFeedStoryOpen(false)}
+        feedItem={selectedFeedStory}
+        onNotify={showToast}
+      />
+
+      {/* Imminent Lecture Alert Modal */}
+      <ImminentLectureModal
+        isOpen={isImminentAlertOpen}
+        alert={imminentAlert}
+        onClose={() => setIsImminentAlertOpen(false)}
+        onOpenCourseChat={(courseCode) => {
+          setIsImminentAlertOpen(false);
+          const c = courses.find(cr => cr.code.toLowerCase() === courseCode.toLowerCase()) || courses[0];
+          if (c) handleOpenCourseChat(c);
+        }}
+        onNotify={showToast}
+      />
+
       {/* Interactive Timetable Import Modal (CSV, AI Photo Scan, Manual) */}
       <TimetableImportModal
         isOpen={isTimetableImportOpen}
@@ -964,6 +1079,28 @@ export default function App() {
         onNavigateTab={(tab) => {
           setActiveTab(tab as ActiveTab);
           setIsAIChatOpen(false);
+        }}
+      />
+
+      {/* Academic Timezone & East Africa Time Modal */}
+      <TimezoneSettingsModal
+        isOpen={isTimezoneModalOpen}
+        onClose={() => setIsTimezoneModalOpen(false)}
+        onSaved={(mode) => {
+          showToast(`Campus timezone configuration updated to: ${mode.toUpperCase()}`);
+        }}
+      />
+
+      {/* Feed Architecture & Update Transparency Modal */}
+      <FeedInfoModal
+        isOpen={isFeedInfoModalOpen}
+        onClose={() => setIsFeedInfoModalOpen(false)}
+        lastFetched={feedMetadata.lastFetched}
+        feedMode={feedMetadata.mode}
+        activeCategory={feedMetadata.activeCategory || currentUser.subjectCategory || 'science'}
+        onTriggerRefresh={() => {
+          setIsFeedInfoModalOpen(false);
+          handleRefreshFeeds();
         }}
       />
 

@@ -23,6 +23,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { DayOfWeek, TimetableSlot, User, CalendarEvent } from '../types';
+import { TimeService } from '../services/timeService';
 
 interface TimetableViewProps {
   user: User;
@@ -145,9 +146,13 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
       {/* Top Header & Action Controls */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 text-xs font-bold uppercase tracking-wider">
               Academic Year 2026/27
+            </span>
+            <span className="px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1 border border-amber-200">
+              <Clock className="w-3 h-3 text-amber-700" />
+              <span>Campus Time: EAT (UTC+3)</span>
             </span>
             <span className="text-xs text-slate-500 font-medium">
               {user.university} • {user.programme}

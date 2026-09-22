@@ -744,11 +744,84 @@ export const INITIAL_STUDY_RESOURCES: StudyResource[] = [
 ];
 
 export const INITIAL_BREAKTHROUGHS: ScientificBreakthrough[] = [
+  // --- LAW & LEGAL STUDIES ---
+  {
+    id: 'brk_law_01',
+    headline: 'Landmark East African Court Ruling Clarifies Cross-Border Digital Trade & Data Sovereignty',
+    summary: 'The East African Court of Justice (EACJ) Appellate Division delivered a precedent-setting judgment harmonizing cross-border e-commerce dispute resolution and data privacy regulations among partner states, directly impacting regional trade law curricula.',
+    field: 'International Trade Law & EAC Jurisprudence',
+    subjectCategory: 'law',
+    relevantCourses: ['LAW 201', 'LAW 305', 'LAW 101'],
+    publishedDate: 'September 2026',
+    source: 'East African Law Reports (EALLR) & Law Society of Tanganyika',
+    readingTime: '6 min read',
+    discussionPrompt: 'How does the doctrine of supranational community law supremacy apply when EACJ interpretations conflict with municipal constitution provisions in Tanzania?',
+    upvotes: 142,
+    url: 'https://eacj.org/?page_id=27',
+    fullStory: `The Appellate Division of the East African Court of Justice (EACJ) sitting in Arusha has handed down a landmark decision clarifying the legal thresholds for cross-border electronic contracts, digital taxation, and citizen data sovereignty across the East African Community (EAC).
+
+The dispute arose from differing statutory standards between member states regarding data localization mandates and digital services levies. The Court held that under Articles 6, 7, and 8 of the Treaty for the Establishment of the East African Community, member state partner legislations that impose disproportionate burdens on regional digital services providers breach the fundamental principles of the Common Market Protocol.
+
+Writing for the unanimous bench, the Principal Judge emphasized that national courts must interpret municipal cybercrimes and electronic transactions statutes in harmony with community jurisprudence. 
+
+For law students studying Constitutional Law, Public International Law, and Regional Integration, this judgment provides an authoritative authority on the evolving supremacy of treaty obligations over conflicting domestic statutory enactments, as well as the practical mechanics of judicial review in supranational tribunals.`,
+    keyTakeaways: [
+      'Reinforces the primacy of the EAC Common Market Protocol over divergent domestic electronic trade restrictions.',
+      'Mandates that municipal courts refer questions of treaty interpretation to the EACJ under Article 27.',
+      'Establishes key legal definitions for digital cross-border contracts and regional consumer protection.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'EAC Common Market Protocol & Judicial Harmonization in East Africa',
+        source: 'LawAfrica Publishing',
+        notes: 'Essential reading for Law of the EAC and Comparative Constitutional Law'
+      },
+      {
+        title: 'Constitutional and Legal System of Tanzania: A Civil-Common Law Blend',
+        source: 'University of Dar es Salaam Law Journal',
+        notes: 'Analyzes municipal statutory hierarchy vs international treaties'
+      }
+    ]
+  },
+  {
+    id: 'brk_law_02',
+    headline: 'High Court Issues Guidance on Electronic Evidence Admissibility & AI-Generated Forensic Proof',
+    summary: 'In an influential commercial arbitration appeal, the High Court of Tanzania Commercial Division laid out clear evidentiary tests for certifying blockchain records and AI audit logs under the Electronic Transactions Act.',
+    field: 'Law of Evidence & Cyber Law',
+    subjectCategory: 'law',
+    relevantCourses: ['LAW 204', 'LAW 302', 'LAW 101'],
+    publishedDate: 'September 2026',
+    source: 'Tanzania Law Reports & High Court Commercial Registry',
+    readingTime: '5 min read',
+    discussionPrompt: 'Under Section 18 of the Electronic Transactions Act (Cap 442), what specific certificate of authenticity is required to admit automated server logs into evidence?',
+    upvotes: 98,
+    url: 'https://judiciary.go.tz',
+    fullStory: `The High Court of Tanzania (Commercial Division) has issued comprehensive guidance on the admissibility, weight, and chain of custody required for computer-generated records, cryptographic hashes, and artificial intelligence analytical audits.
+
+Addressing contentious evidentiary objections during an expedited maritime freight dispute, the judge ruled that mere screenshots or unverified digital exports do not meet the strict statutory requirements of the Electronic Transactions Act (Act No. 13 of 2015) read together with the Law of Evidence Act (Cap 6). The Court ruled that litigants tendering automated digital evidence must furnish a formal certificate signed by the person responsible for managing the relevant computer system, demonstrating that the hardware and software were functioning normally during the period in question.
+
+Furthermore, the judgment distinguishes between 'real evidence generated autonomously by computers' and 'hearsay statements entered into computers by humans', adopting contemporary Commonwealth evidentiary tests. Law students preparing for Evidence Law continuous assessments (CATs) are encouraged to study the ratio decidendi for their trial advocacy practicals.`,
+    keyTakeaways: [
+      'Clarifies mandatory certification requirements under Section 18 of the Electronic Transactions Act.',
+      'Distinguishes computer-generated real evidence from electronic hearsay.',
+      'Provides a procedural blueprint for cross-examining digital forensic experts in Tanzanian courts.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'The Law of Evidence in Tanzania: Cases and Materials',
+        source: 'Faculty of Law, University of Dar es Salaam',
+        notes: 'Core textbook reference for CAT 1 and CAT 2'
+      }
+    ]
+  },
+
+  // --- NATURAL & APPLIED SCIENCES ---
   {
     id: 'brk_01',
     headline: 'Scientists Unveil Solar-Powered AI Telemedicine Pods for Rural Clinical Consultations',
     summary: 'Biomedical engineers and digital health researchers have engineered ultra-low-power telemedicine booths equipped with AI diagnostic assistants and satellite links, cutting consultation waiting times in remote African district health centers from 72 hours down to 12 minutes.',
     field: 'Telemedicine & Digital Health',
+    subjectCategory: 'health',
     relevantCourses: ['BIO 203', 'CHE 201', 'MED 101'],
     publishedDate: 'September 2026',
     source: 'The Lancet Global Digital Health',
@@ -756,12 +829,30 @@ export const INITIAL_BREAKTHROUGHS: ScientificBreakthrough[] = [
     discussionPrompt: 'How can biostatistical sampling validate diagnostic accuracy in low-bandwidth rural clinics? Discuss with your classmates!',
     upvotes: 89,
     url: 'https://www.thelancet.com/digital-health',
+    fullStory: `A pioneering consortium of biomedical engineers and public health researchers has deployed self-contained, solar-powered telemedicine pods to remote rural primary healthcare facilities across sub-Saharan Africa.
+
+Each unit incorporates low-power diagnostic hardware, including a digital stethoscope, ultrasound wand, hemoglobin meter, and pulse oximeter, interfaced with an on-device neural network that performs pre-screening triages even without an active internet connection. When low-Earth orbit satellite links become available, patient vitals and high-resolution diagnostic images sync directly to central referral hospitals in urban centers.
+
+In pilot clinical trials across 30 rural district clinics, average patient turnaround from initial symptom presentation to specialist diagnostic consultation plummeted from 72 hours down to just 12 minutes, with a 94.2% diagnostic concordance rate with in-person specialist panels.`,
+    keyTakeaways: [
+      'Edge AI enables offline medical triage in rural clinics with erratic power and network connectivity.',
+      'Drastically reduces geographical disparities in specialist healthcare access.',
+      'Validates clinical biostatistical models for diagnostic sensitivity and specificity.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'Digital Health Technologies in Low-Resource Settings',
+        source: 'Lancet Global Health Review',
+        notes: 'Relevant for Public Health & Biostatistics'
+      }
+    ]
   },
   {
     id: 'brk_02',
     headline: 'Breakthrough in Space Tech: Low-Earth Orbit Microsatellites Enable Precision Climate & Agricultural Forecasting',
     summary: 'The African Space Agency consortium deployed a swarm of lightweight multispectral imaging microsatellites that map soil moisture, crop canopy health, and drought indicators across sub-Saharan Africa with sub-meter spatial resolution.',
     field: 'Space Technology & Remote Sensing',
+    subjectCategory: 'science',
     relevantCourses: ['ECO 202', 'ZOO 201', 'ENG 004'],
     publishedDate: 'September 2026',
     source: 'Nature Space Technology & IEEE Geoscience',
@@ -769,12 +860,30 @@ export const INITIAL_BREAKTHROUGHS: ScientificBreakthrough[] = [
     discussionPrompt: 'Can satellite NDVI vegetation indices be integrated into your next semester ecology field assignment?',
     upvotes: 114,
     url: 'https://www.nature.com/subjects/space-sciences',
+    fullStory: `The African Space Agency consortium has confirmed the operational calibration of its new microsatellite constellation, delivering high-frequency, multispectral imaging of East African river basins, agricultural plains, and wildlife migration corridors.
+
+By utilizing lightweight 12U CubeSat architectures fitted with specialized optical sensors, the satellites capture Normalized Difference Vegetation Index (NDVI) and surface soil moisture measurements every 48 hours at a resolution of 80 centimeters. This enables agricultural meteorologists and conservation biologists to detect drought stress and river catchment depletion up to four weeks before visual crop damage occurs on the ground.
+
+The open-access data feeds are made freely accessible to university researchers and students across African institutions, allowing undergraduates in ecology, environmental science, and civil geomatics to incorporate real-time satellite telemetry into their final-year dissertations.`,
+    keyTakeaways: [
+      'Enables proactive agricultural yield predictions and early drought warning mechanisms.',
+      'Demonstrates the viability of low-cost CubeSat swarms for equatorial climate monitoring.',
+      'Provides open-access datasets for academic research in hydrology, ecology, and environmental modeling.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'Remote Sensing Applications in African Savannah Ecosystems',
+        source: 'Springer Earth System Sciences',
+        notes: 'Recommended for ECO 202 & Forestry students'
+      }
+    ]
   },
   {
     id: 'brk_03',
     headline: 'CRISPR-Cas12 Field Biosensor Delivers 10-Minute Pathogen Detection for Tropical Vector-Borne Diseases',
     summary: 'Molecular biologists have created a paper-strip CRISPR assay that detects protozoan and viral genetic material at room temperature without requiring expensive thermocyclers or refrigerated cold chains.',
     field: 'Genomics & Vector Biology',
+    subjectCategory: 'science',
     relevantCourses: ['ZOO 201', 'CHE 201'],
     publishedDate: 'September 2026',
     source: 'Cell Host & Microbe',
@@ -782,20 +891,112 @@ export const INITIAL_BREAKTHROUGHS: ScientificBreakthrough[] = [
     discussionPrompt: 'How does the specificity of Cas12 enzymatic cleavage compare to standard PCR assays reviewed in Zoology 201?',
     upvotes: 76,
     url: 'https://www.cell.com/cell-host-microbe',
+    fullStory: `A collaborative research team from regional universities has engineered a freeze-dried, lateral flow CRISPR-Cas12 assay capable of detecting Plasmodium falciparum and dengue viral RNA directly from a single drop of capillary blood.
+
+Unlike standard quantitative polymerase chain reaction (qPCR) protocols, which necessitate temperature-controlled reagents and multimillion-shilling thermocycling equipment, this new biosensor utilizes isothermal recombinase polymerase amplification coupled with collateral cleavage of fluorescent reporter molecules. Field trials conducted in coastal river valleys demonstrated a limit of detection below 5 parasites per microliter within 10 minutes at ambient tropical temperatures (28°C–36°C).`,
+    keyTakeaways: [
+      'Eliminates the need for cold-chain storage and expensive molecular biology laboratory equipment.',
+      'Achieves sensitivity equivalent to laboratory qPCR in a disposable lateral flow format.',
+      'Crucial practical example of molecular biotechnology applied to tropical public health challenges.'
+    ]
   },
+
+  // --- ENGINEERING & TECHNOLOGY ---
   {
-    id: 'brk_04',
-    headline: 'Next-Generation Perovskite Solar Microgrids Exceed 28% Energy Efficiency in High-Temperature Tropical Trials',
-    summary: 'Materials science researchers achieved record photovoltaic resilience against tropical humidity and intense solar irradiance, opening high-efficiency clean power generation for university research stations and off-grid campus labs.',
-    field: 'Clean Energy & Microgrid Tech',
-    relevantCourses: ['CHE 201', 'ENG 004', 'ECO 202'],
-    publishedDate: 'August 2026',
-    source: 'Advanced Materials & Science Energy',
-    readingTime: '4 min read',
-    discussionPrompt: 'What thermodynamic factors limit photovoltaic efficiency under tropical ambient temperatures?',
-    upvotes: 63,
-    url: 'https://onlinelibrary.wiley.com/journal/15214095',
+    id: 'brk_eng_01',
+    headline: 'Julius Nyerere Hydropower Dam Synchronizes 2,115 MW Smart Grid Load Balancing System',
+    summary: 'Electrical and systems engineers have brought online an automated SCADA grid management platform at the Rufiji hydro basin, utilizing digital twins to prevent transmission line voltage dips and optimize turbine flow.',
+    field: 'Power Systems & Smart Grid Engineering',
+    subjectCategory: 'engineering',
+    relevantCourses: ['ENG 004', 'CHE 201'],
+    publishedDate: 'September 2026',
+    source: 'IEEE Power & Energy Society & TANESCO Technical Review',
+    readingTime: '5 min read',
+    discussionPrompt: 'What control algorithms are used in frequency containment reserves when fluctuating industrial loads hit a national transmission network?',
+    upvotes: 128,
+    url: 'https://www.ieee-pes.org',
+    fullStory: `Engineers commissioning the Julius Nyerere Hydropower Plant (JNHPP) on the Rufiji River have announced the complete integration of an automated supervisory control and data acquisition (SCADA) network paired with an active digital-twin predictive model.
+
+Generating up to 2,115 megawatts across nine vertical Francis turbines, the facility represents the single largest power station in East Africa. The new automated load-balancing dispatch system calculates lake inflow velocities, turbine cavitation thresholds, and reactive power demands across the 400kV national transmission backbone every 10 milliseconds, preventing blackouts and voltage fluctuations across major industrial zones.
+
+For electrical, mechanical, and civil engineering students, this engineering milestone provides real-world case studies in hydro-mechanical dynamics, turbine governor tuning, and high-voltage AC substation protection.`,
+    keyTakeaways: [
+      'Doubles Tanzania’s national installed generation capacity with clean hydroelectric baseload power.',
+      'Utilizes real-time predictive digital twins for reservoir hydraulic management and turbine wear minimization.',
+      'Provides rich operational data for engineering thesis research and grid stability studies.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'Modern Power System Analysis and Grid Integration',
+        source: 'McGraw-Hill Education',
+        notes: 'Relevant for Electrical & Mechanical Engineering undergraduates'
+      }
+    ]
   },
+
+  // --- BUSINESS, ECONOMICS & FINANCE ---
+  {
+    id: 'brk_biz_01',
+    headline: 'Bank of Tanzania Digital Currency & Interoperable Mobile Payment Integration Roadmap',
+    summary: 'The Central Bank of Tanzania released its revised technical framework for national retail payment interoperability, establishing real-time clearing rails linking GePG, commercial banks, and telecom mobile wallets.',
+    field: 'Macroeconomics, Banking & FinTech',
+    subjectCategory: 'business',
+    relevantCourses: ['ECO 202', 'BIO 203'],
+    publishedDate: 'September 2026',
+    source: 'Bank of Tanzania (BoT) Economic Bulletin & Financial Times',
+    readingTime: '5 min read',
+    discussionPrompt: 'How does instantaneous liquidity settlement via national switches impact inflation forecasting and monetary policy transmission mechanisms?',
+    upvotes: 119,
+    url: 'https://www.bot.go.tz',
+    fullStory: `The Bank of Tanzania (BoT) has published its National Financial Infrastructure Modernization Report, outlining the expansion of the Tanzania Instant Payments System (TIPS) and government electronic payment gateway (GePG) harmonization.
+
+The policy paper highlights how Tanzania has emerged as a continental leader in mobile financial services, with annual transactions exceeding 120 trillion TZS. The new clearing standards mandate maximum cross-network transfer fees, instant settlement for smallholder agricultural cooperatives, and standardized QR codes for merchant collections.
+
+Economics, finance, and accounting students can analyze how reduced transaction friction directly increases formalization in the informal economy, enhances tax compliance without increasing tax rates, and reshapes commercial bank deposit mobilization strategies.`,
+    keyTakeaways: [
+      'Drastically lowers cost and latency for peer-to-peer and merchant digital payments.',
+      'Improves transparency and velocity of money in both urban and rural commerce.',
+      'Serves as an authoritative empirical study for monetary economics and banking curricula.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'Financial Inclusion and Monetary Policy in Sub-Saharan Africa',
+        source: 'International Monetary Fund (IMF) Economic Review',
+        notes: 'Required reading for Economics & Commerce degrees'
+      }
+    ]
+  },
+
+  // --- HUMANITIES & SOCIAL SCIENCES ---
+  {
+    id: 'brk_hum_01',
+    headline: 'Swahili AI Corpus Project Preserves 50,000 Historical East African Literary & Legal Manuscripts',
+    summary: 'Linguists, historians, and computer scientists at the Institute of Kiswahili Studies (TATAKI) have published an open digital repository of classical Swahili poetry, colonial treaties, and oral histories indexed with semantic search.',
+    field: 'African History, Linguistics & Digital Humanities',
+    subjectCategory: 'humanities',
+    relevantCourses: ['LAW 101', 'ECO 202'],
+    publishedDate: 'August 2026',
+    source: 'Institute of Kiswahili Studies (TATAKI) & UNESCO Heritage',
+    readingTime: '4 min read',
+    discussionPrompt: 'How can computational linguistics safeguard African indigenous languages against algorithmic exclusion in generative AI systems?',
+    upvotes: 95,
+    url: 'https://tataki.udsm.ac.tz',
+    fullStory: `The Institute of Kiswahili Studies (Taasisi ya Taaluma za Kiswahili - TATAKI) at the University of Dar es Salaam, in partnership with international cultural institutions, has unveiled the Swahili Open Digital Heritage Corpus.
+
+This landmark repository digitizes and annotates over 50,000 fragile manuscripts, dating from the 16th-century Kilwa Sultanate chronicles to post-independence Ujamaa administrative dispatches. Utilizing natural language processing specifically tuned to the grammatical noun class system of Bantu languages, the archive allows students of literature, history, and sociology to cross-reference dialectical variations across coastal and inland regions.`,
+    keyTakeaways: [
+      'Preserves priceless historical and literary patrimony in high-resolution digital format.',
+      'Creates training datasets for ethical, inclusive African language AI technologies.',
+      'Enriches undergraduate research across sociology, political science, and African studies.'
+    ],
+    recommendedReadings: [
+      {
+        title: 'Historia ya Kiswahili na Maendeleo ya Fasihi',
+        source: 'Chuo Kikuu cha Dar es Salaam Press',
+        notes: 'Classic foundational text for Swahili & Humanities'
+      }
+    ]
+  }
 ];
 
 export const INITIAL_TIMETABLE: TimetableSlot[] = [
@@ -974,8 +1175,32 @@ export const INITIAL_TIMETABLE: TimetableSlot[] = [
 
 export const INITIAL_ROLE_PERMISSIONS: RolePermission[] = [
   {
+    role: 'system_admin',
+    label: 'System Super Administrator (Global / Multi-Campus)',
+    canBroadcast: true,
+    canAttachFiles: true,
+    canEditTimetable: true,
+    canManageCourses: true,
+    canVerifyPayments: true,
+    canManageUsers: true,
+    canIssueAlerts: true,
+    canExportData: true,
+  },
+  {
+    role: 'college_admin',
+    label: 'University / College Administrator (Campus-Specific)',
+    canBroadcast: true,
+    canAttachFiles: true,
+    canEditTimetable: true,
+    canManageCourses: true,
+    canVerifyPayments: true,
+    canManageUsers: true,
+    canIssueAlerts: true,
+    canExportData: true,
+  },
+  {
     role: 'admin',
-    label: 'System Administrator / IT Director',
+    label: 'Campus Administrator / IT Director',
     canBroadcast: true,
     canAttachFiles: true,
     canEditTimetable: true,
@@ -1048,6 +1273,42 @@ export const INITIAL_ROLE_PERMISSIONS: RolePermission[] = [
 ];
 
 export const INITIAL_MANAGED_USERS: ManagedUser[] = [
+  {
+    id: 'usr_sys_admin_01',
+    name: 'Eng. David Mwakipesile',
+    email: 'sysadmin@campusflow.ac.tz',
+    role: 'system_admin',
+    leadershipTitle: 'System Administrator',
+    university: 'CampusFlow Cloud Core (Multi-University)',
+    programme: 'Platform Systems Architecture & Infrastructure',
+    currentYear: 0,
+    totalYears: 0,
+    authProvider: 'google',
+    mfaEnabled: true,
+    status: 'active',
+    department: 'Directorate of ICT & Cloud Infrastructure',
+    lastActive: 'Active now',
+    phone: '+255 784 999 000',
+    registeredDate: 'January 2024',
+  },
+  {
+    id: 'usr_col_admin_01',
+    name: 'Dr. Frank Kavishe',
+    email: 'admin.conas@udsm.ac.tz',
+    role: 'college_admin',
+    leadershipTitle: 'College / University Administrator',
+    university: 'University of Dar es Salaam (UDSM)',
+    programme: 'College of Natural & Applied Sciences (CoNAS)',
+    currentYear: 0,
+    totalYears: 0,
+    authProvider: 'microsoft',
+    mfaEnabled: true,
+    status: 'active',
+    department: 'Office of the Principal & College Registrar',
+    lastActive: '20 mins ago',
+    phone: '+255 784 112 233',
+    registeredDate: 'March 2016',
+  },
   {
     id: 'usr_udsm_2026_094',
     name: 'Deodatus Maliti',

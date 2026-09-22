@@ -1,95 +1,49 @@
-# CampusFlow TZ - Deployment Guide
+# CampusFlow TZ - GitHub Pages & Deployment Guide
 
-This repository contains both the **Vite + React frontend** and the optional **Express full-stack backend** (`server.ts`).
-
----
-
-## 1. Deploying Frontend to GitHub Pages
-
-GitHub Pages serves static files (`HTML`, `CSS`, `JavaScript`). Because GitHub Pages does NOT automatically run `npm run build`, your repository's raw files will show a blank screen or a 404 unless built.
-
-### Method A: Automated GitHub Actions (Recommended)
-Add this workflow in `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches: [main]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build static site
-        run: npm run build
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-```
-
-Then in GitHub:
-1. Go to **Settings** > **Pages**.
-2. Under **Build and deployment** > **Source**, select **GitHub Actions**.
-
-### Method B: Deploy using `gh-pages` package
-1. Install: `npm install -D gh-pages`
-2. In `package.json`, add:
-   ```json
-   "scripts": {
-     "predeploy": "npm run build",
-     "deploy": "gh-pages -d dist"
-   }
-   ```
-3. Run: `npm run deploy`
-4. In GitHub **Settings** > **Pages**, set source to `gh-pages` branch.
+This project is configured to run smoothly across **GitHub Pages**, **Vercel**, and **Full-Stack Container environments**.
 
 ---
 
-## 2. Deploying Full-Stack (with Express Server & Cloud Gemini API)
+## 🚀 GitHub Pages Setup (Why it was blank & How to activate)
 
-If you want the live backend (`/api/chat` and `/api/parse-timetable` with Gemini API):
+### The Cause of Blank Page:
+When a Vite/React application is deployed directly from the `main` branch root without a build step, GitHub Pages tries to serve the raw `index.html` referencing `<script src="/src/main.tsx"></script>`. Browsers cannot run raw TypeScript, resulting in:
+`Failed to load resource: net::ERR_FILE_NOT_FOUND` or 404.
 
-### Deploy to Render.com / Railway / Koyeb:
-1. Connect your GitHub repository.
-2. **Build Command**: `npm run build`
-3. **Start Command**: `npm start`
-4. **Environment Variables**: Add `GEMINI_API_KEY` in the hosting dashboard.
+### The Solution:
+We have configured automated dual-build deployment in `.github/workflows/deploy.yml`:
+1. It builds the static production bundle into `dist/` with relative asset paths (`./assets/...`).
+2. It generates `.nojekyll` and `404.html` SPA routing fallbacks.
+3. It deploys via **GitHub Actions** AND commits the compiled build to the **`gh-pages` branch**.
 
-### Deploy to Google Cloud Run:
-Click the **Deploy to Cloud Run** button directly in Google AI Studio to host the full-stack container.
+---
+
+### Step-by-Step GitHub Settings Setup:
+
+1. Open your repository on GitHub: `https://github.com/deodatusmaliti/CampusFlowTz`
+2. Click **Settings** (top right tab of your repository).
+3. In the left sidebar, click **Pages** (under "Code and automation").
+4. Under **Build and deployment** > **Source**:
+   - **Option 1 (Recommended)**: Select **"GitHub Actions"**.
+     The workflow will automatically build and publish the site whenever you push.
+   - **Option 2 (Standard Branch Deployment)**:
+     If you prefer "Deploy from a branch":
+     - Set **Branch** to `gh-pages` (created automatically by the workflow on your first run).
+     - Set **Folder** to `/ (root)`.
+     - Click **Save**.
+
+Your live URL: **`https://deodatusmaliti.github.io/CampusFlowTz/`** will load the application.
+
+---
+
+## 📱 Mobile Screen & Smartphone Readability Updates
+- **High-Contrast Typography**: Upgraded all text, secondary labels, and icon colors to deep slate (`text-slate-900` / `text-slate-800`), eliminating faint grey rendering under smartphone sunlight or small screens.
+- **No Edge Clipping**: Added safe padding (`px-3 sm:px-6`) and `min-w-0` on cards and containers.
+- **Mobile Quick Bottom Bar**: Added a bottom navigation bar with one-tap access to **Overview**, **Timetable**, **Feeds**, **Chat**, and **Tasks**.
+- **Responsive Faculty Filters**: Added horizontal scroll pills with faculty badges for Law, Medicine, Engineering, Science, Business, and Humanities.
+- **Full Story Reader**: Clicking any academic breakthrough or news item opens the full article modal with discussion prompts, citations, upvoting, and course chat sharing.
+
+---
+
+## 🌐 Vercel & Netlify Deployment
+Vercel automatically detects Vite from `package.json` and runs `npm run build` with output directory `dist`. No configuration needed.

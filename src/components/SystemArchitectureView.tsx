@@ -65,7 +65,7 @@ export const SystemArchitectureView: React.FC<SystemArchitectureViewProps> = ({
         </div>
 
         {/* Sub-tabs */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto max-w-full mobile-scroll-container">
           {[
             { id: 'blueprint', label: 'Architecture', icon: Layers },
             { id: 'telemetry', label: 'Telemetry & Logs', icon: Activity },
@@ -78,7 +78,7 @@ export const SystemArchitectureView: React.FC<SystemArchitectureViewProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setSelectedSubTab(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                   isActive
                     ? 'bg-white text-[#102d4f] shadow-xs'
                     : 'text-slate-600 hover:text-[#102d4f]'
@@ -255,7 +255,7 @@ export const SystemArchitectureView: React.FC<SystemArchitectureViewProps> = ({
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {filteredLogs.map((log) => (
-                <div key={log.id} className="leading-relaxed hover:bg-slate-800/40 p-1.5 rounded transition-colors">
+                <div key={log.id} className="leading-relaxed hover:bg-slate-800/40 p-1.5 rounded transition-colors break-words text-[11px] sm:text-xs">
                   <span className="text-slate-500 mr-2">{log.timestamp}</span>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold mr-2 uppercase ${
                     log.level === 'info' ? 'bg-sky-950 text-sky-400' :
@@ -265,8 +265,8 @@ export const SystemArchitectureView: React.FC<SystemArchitectureViewProps> = ({
                     {log.level}
                   </span>
                   <span className="text-purple-400 font-semibold mr-2">[{log.service}]</span>
-                  <span className="text-slate-300">{log.message}</span>
-                  <span className="text-slate-600 text-[10px] ml-2">({log.traceId})</span>
+                  <span className="text-slate-300 break-words">{log.message}</span>
+                  <span className="text-slate-600 text-[10px] ml-2 font-mono">({log.traceId})</span>
                 </div>
               ))}
             </div>

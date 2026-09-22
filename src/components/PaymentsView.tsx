@@ -149,13 +149,13 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100">
               <div className="text-xs text-slate-500">
                 Authorized for <strong className="text-slate-800">University of Dar es Salaam</strong>
               </div>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-[#e6ad3d] hover:bg-[#f3b844] text-[#102d4f] text-xs sm:text-sm font-extrabold shadow-sm transition-all active:scale-95 flex items-center gap-2"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#e6ad3d] hover:bg-[#f3b844] text-[#102d4f] text-xs sm:text-sm font-extrabold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <CreditCard className="w-4 h-4" /> Generate Control Number & Verify
               </button>
@@ -164,7 +164,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
         </div>
 
         {/* Live Active Receipt Card */}
-        <div className="bg-[#f8fafc] rounded-2xl p-5 border border-[#d9e3ea] flex flex-col justify-between">
+        <div className="bg-[#f8fafc] rounded-2xl p-4 sm:p-5 border border-[#d9e3ea] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
               <span className="text-xs font-extrabold text-[#102d4f] uppercase tracking-wider">
@@ -182,14 +182,14 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
                   <div className="space-y-2.5 text-xs text-slate-600">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Control Number</span>
-                      <span className="text-base font-black text-[#102d4f] font-mono tracking-wider">
+                      <span className="text-sm sm:text-base font-black text-[#102d4f] font-mono tracking-wider break-all">
                         {rec.controlNumber}
                       </span>
                     </div>
 
-                    <div className="flex justify-between py-1 border-b border-slate-200/60">
-                      <span className="text-slate-500">Item:</span>
-                      <span className="font-semibold text-slate-800 text-right">{rec.description}</span>
+                    <div className="flex justify-between py-1 border-b border-slate-200/60 gap-2">
+                      <span className="text-slate-500 shrink-0">Item:</span>
+                      <span className="font-semibold text-slate-800 text-right text-xs truncate">{rec.description}</span>
                     </div>
 
                     <div className="flex justify-between py-1 border-b border-slate-200/60">
@@ -209,7 +209,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
 
                     <div className="flex justify-between py-1">
                       <span className="text-slate-500">Timestamp:</span>
-                      <span>{rec.timestamp}</span>
+                      <span className="text-[11px] text-slate-600">{rec.timestamp}</span>
                     </div>
                   </div>
                 );
@@ -219,21 +219,41 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
 
           <button
             onClick={() => onNotify('Digital receipt printed and downloaded as PDF.')}
-            className="mt-4 w-full py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+            className="mt-4 w-full py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors touch-target"
           >
             <Printer className="w-3.5 h-3.5" /> Print / Save PDF Receipt
           </button>
         </div>
       </div>
 
-      {/* Historical Payment Ledger Table */}
+      {/* Historical Payment Ledger */}
       <div className="bg-white rounded-2xl border border-[#d9e3ea] overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-bold text-[#102d4f]">Verified Payment History</h2>
-          <span className="text-xs text-slate-500">{payments.length} transactions recorded</span>
+          <span className="text-xs text-slate-500 font-medium">{payments.length} transactions recorded</span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile View: Compact Payment Cards */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {payments.map((p) => (
+            <div key={p.id} className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-xs text-[#102d4f]">{p.controlNumber}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                </span>
+              </div>
+              <div className="text-xs font-medium text-slate-800">{p.description}</div>
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="font-extrabold text-[#16845d]">TZS {p.amount.toLocaleString()}</span>
+                <span className="text-[11px] text-slate-500">{p.channel} • {p.timestamp}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop View: Full Data Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs sm:text-sm">
             <thead>
               <tr className="bg-[#eef6fb] text-[#102d4f] border-b border-slate-200">

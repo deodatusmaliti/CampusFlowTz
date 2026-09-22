@@ -1,6 +1,7 @@
 export type EventCategory = 'lecture' | 'practical' | 'assessment' | 'personal' | 'sport' | 'society';
 export type TaskStatus = 'not_started' | 'in_progress' | 'submitted' | 'graded';
-export type UserRole = 'student' | 'lecturer' | 'admin';
+export type UserRole = 'student' | 'lecturer' | 'college_admin' | 'system_admin' | 'admin';
+export type AcademicSubjectCategory = 'law' | 'science' | 'engineering' | 'business' | 'health' | 'humanities' | 'general';
 export type LeadershipTitle = 
   | 'Student'
   | 'Class Representative'
@@ -8,6 +9,7 @@ export type LeadershipTitle =
   | 'Course Lecturer / Tutor'
   | 'Head of Department (HOD)'
   | 'Dean of Faculty / School'
+  | 'College / University Administrator'
   | 'Academic Registrar / Manager'
   | 'Vice Chancellor / Deputy VC'
   | 'System Administrator';
@@ -42,6 +44,7 @@ export interface CalendarEvent {
   endTime: string; // HH:mm
   location: string;
   category: EventCategory;
+  type?: string;
   courseId?: string;
   courseCode?: string;
   instructor?: string;
@@ -75,6 +78,8 @@ export interface User {
   avatar?: string;
   authProvider: 'email' | 'google' | 'microsoft';
   mfaEnabled: boolean;
+  subjectCategory?: AcademicSubjectCategory;
+  regNumber?: string;
 }
 
 export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
@@ -176,6 +181,8 @@ export interface StudyResource {
   source: string; // e.g. "MIT OpenCourseWare", "PubMed Central", "TCU Digital Library"
   description: string;
   url: string;
+  fileUrl?: string;
+  fileSize?: string;
   readingTime?: string;
   tags: string[];
 }
@@ -184,14 +191,39 @@ export interface ScientificBreakthrough {
   id: string;
   headline: string;
   summary: string;
-  field: string; // e.g. "Space Technology", "Telemedicine & Digital Health", "Genomics & Tropical Disease", "Microgrid Clean Tech"
-  relevantCourses: string[]; // e.g. ["ZOO 201", "BIO 203"]
+  field: string; // e.g. "Constitutional Law & Judicial Review", "Space Technology", "Corporate Finance & FinTech", etc.
+  subjectCategory?: AcademicSubjectCategory; // 'law' | 'science' | 'engineering' | 'business' | 'health' | 'humanities' | 'general'
+  relevantCourses: string[]; // e.g. ["LAW 101", "ZOO 201", "BIO 203"]
   publishedDate: string;
-  source: string; // e.g. "Nature Health", "NASA Tech Briefs", "Lancet Global Health"
+  source: string; // e.g. "Tanzania Law Reports & EALLR", "Nature Space Tech", "Harvard Business Review"
   readingTime: string;
   discussionPrompt: string;
   upvotes: number;
   url?: string;
+  fullStory?: string;
+  keyTakeaways?: string[];
+  recommendedReadings?: {
+    title: string;
+    source?: string;
+    url?: string;
+    notes?: string;
+  }[];
+}
+
+export type AcademicFeedItem = ScientificBreakthrough;
+
+export interface ImminentLectureAlert {
+  id: string;
+  courseCode: string;
+  courseName: string;
+  hall: string;
+  building?: string;
+  lecturer: string;
+  startTime: string;
+  endTime: string;
+  minutesRemaining: number;
+  intervalLabel: '5 hours' | '1 hour' | '30 mins' | '15 mins' | '5 mins';
+  timestamp: string;
 }
 
 export interface CommunityMessage {

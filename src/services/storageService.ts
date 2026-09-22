@@ -45,6 +45,7 @@ const KEYS = {
   UNIVERSITIES: 'campusflow_universities_v1',
   STUDY_RESOURCES: 'campusflow_study_resources_v1',
   BREAKTHROUGHS: 'campusflow_breakthroughs_v1',
+  FEED_METADATA: 'campusflow_feed_metadata_v1',
   TIMETABLE: 'campusflow_timetable_v1',
   MANAGED_USERS: 'campusflow_managed_users_v1',
   ROLE_PERMISSIONS: 'campusflow_role_permissions_v1',
@@ -147,6 +148,14 @@ export const StorageService = {
   },
 
   getBreakthroughs: (): ScientificBreakthrough[] => safeGet(KEYS.BREAKTHROUGHS, INITIAL_BREAKTHROUGHS),
+  saveBreakthroughs: (items: ScientificBreakthrough[]): void => {
+    safeSet(KEYS.BREAKTHROUGHS, items);
+  },
+  getFeedMetadata: (): { lastFetched: number; mode: string; activeCategory?: string } => 
+    safeGet(KEYS.FEED_METADATA, { lastFetched: 0, mode: 'initial_cache', activeCategory: 'recommended' }),
+  saveFeedMetadata: (meta: { lastFetched: number; mode: string; activeCategory?: string }): void => {
+    safeSet(KEYS.FEED_METADATA, meta);
+  },
   upvoteBreakthrough: (id: string): ScientificBreakthrough[] => {
     const list = StorageService.getBreakthroughs();
     const updated = list.map(b => b.id === id ? { ...b, upvotes: b.upvotes + 1 } : b);

@@ -1,6 +1,34 @@
-import { TimetableSlot } from '../types';
+import { TimetableSlot, ScientificBreakthrough } from '../types';
 
 export const AIService = {
+  async fetchPersonalizedFeed(params: {
+    fieldOfStudy?: string;
+    programme?: string;
+    courses?: string[];
+    category?: string;
+  }): Promise<{ items: ScientificBreakthrough[]; mode: string; timestamp: string; refreshCadenceMinutes: number }> {
+    try {
+      const res = await fetch('/api/feed/personalized', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      return await res.json();
+    } catch (err) {
+      console.warn('AI Feed network fallback:', err);
+      return {
+        items: [],
+        mode: 'offline_fallback',
+        timestamp: new Date().toISOString(),
+        refreshCadenceMinutes: 20,
+      };
+    }
+  },
   async sendMessage(
     message: string,
     studentContext?: {

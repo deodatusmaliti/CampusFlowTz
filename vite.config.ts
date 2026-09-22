@@ -5,7 +5,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: process.env.BASE_PATH || (process.env.GITHUB_ACTIONS ? '/CampusFlowTz/' : './'),
+    // Relative base './' allows static assets to load correctly in any directory,
+    // whether deployed at root (Vercel/custom domain) or subfolder (GitHub Pages /CampusFlowTz/).
+    base: process.env.BASE_PATH || './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
