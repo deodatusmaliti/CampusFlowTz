@@ -18,10 +18,13 @@ interface FeedInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
   lastFetchedTime?: number;
+  lastFetched?: number;
   feedMode?: string;
   detectedSubject?: string;
+  activeCategory?: string;
   programmeName?: string;
-  onRefreshNow: () => void;
+  onRefreshNow?: () => void;
+  onTriggerRefresh?: () => void;
   isRefreshing?: boolean;
 }
 
@@ -29,16 +32,23 @@ export const FeedInfoModal: React.FC<FeedInfoModalProps> = ({
   isOpen,
   onClose,
   lastFetchedTime,
+  lastFetched,
   feedMode = 'gemini_ai_live',
   detectedSubject = 'science',
+  activeCategory,
   programmeName = 'General Academic Programme',
   onRefreshNow,
+  onTriggerRefresh,
   isRefreshing = false,
 }) => {
   if (!isOpen) return null;
 
-  const formattedLastFetch = lastFetchedTime && lastFetchedTime > 0
-    ? TimeService.formatInEAT(new Date(lastFetchedTime), {
+  const actualLastFetched = lastFetchedTime ?? lastFetched;
+  const actualRefresh = onRefreshNow ?? onTriggerRefresh ?? (() => {});
+  const displaySubject = activeCategory ?? detectedSubject;
+
+  const formattedLastFetch = actualLastFetched && actualLastFetched > 0
+    ? TimeService.formatInEAT(new Date(actualLastFetched), {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',

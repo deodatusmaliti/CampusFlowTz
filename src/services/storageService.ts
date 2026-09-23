@@ -13,7 +13,19 @@ import {
   ScientificBreakthrough,
   TimetableSlot,
   ManagedUser,
-  RolePermission 
+  RolePermission,
+  StudyMaterial,
+  DiscussionCall,
+  LeisureEvent,
+  OpportunityItem,
+  StudentNetworkProfile,
+  EndorsementRecord,
+  AlertPreferences,
+  SystemAlertItem,
+  AttendanceRecord,
+  LecturerQRCodeSession,
+  StudyGroup,
+  DirectConversation
 } from '../types';
 import { 
   INITIAL_USER, 
@@ -32,6 +44,21 @@ import {
   INITIAL_MANAGED_USERS,
   INITIAL_ROLE_PERMISSIONS
 } from '../data/mockInitialData';
+import {
+  EXTENDED_DISCIPLINE_COURSES,
+  INITIAL_STUDY_MATERIALS,
+  INITIAL_CALL_SESSIONS,
+  INITIAL_LEISURE_EVENTS,
+  INITIAL_OPPORTUNITIES,
+  INITIAL_STUDENT_PROFILES,
+  INITIAL_ENDORSEMENTS,
+  DEFAULT_ALERT_PREFERENCES,
+  INITIAL_SYSTEM_ALERTS
+} from '../data/academicExtendedData';
+import {
+  INITIAL_STUDY_GROUPS,
+  INITIAL_DIRECT_CONVERSATIONS
+} from '../data/chatData';
 
 const KEYS = {
   USER: 'campusflow_user_v1',
@@ -52,6 +79,19 @@ const KEYS = {
   SYNC_QUEUE: 'campusflow_sync_queue_v1',
   LOGS: 'campusflow_logs_v1',
   SIMULATED_OFFLINE: 'campusflow_simulated_offline_v1',
+  STUDY_MATERIALS: 'campusflow_study_materials_v1',
+  DISCUSSION_CALLS: 'campusflow_discussion_calls_v1',
+  LEISURE_EVENTS: 'campusflow_leisure_events_v1',
+  OPPORTUNITIES: 'campusflow_opportunities_v1',
+  STUDENT_PROFILES: 'campusflow_student_profiles_v1',
+  ENDORSEMENTS: 'campusflow_endorsements_v1',
+  ALERT_PREFS: 'campusflow_alert_prefs_v1',
+  SYSTEM_ALERTS: 'campusflow_system_alerts_v1',
+  ATTENDANCE_RECORDS: 'campusflow_attendance_records_v1',
+  QR_SESSIONS: 'campusflow_qr_sessions_v1',
+  STUDY_GROUPS: 'campusflow_study_groups_v1',
+  DIRECT_CONVERSATIONS: 'campusflow_direct_conversations_v1',
+  GENERAL_SETTINGS: 'campusflow_general_settings_v1',
 };
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -73,16 +113,71 @@ function safeSet<T>(key: string, value: T): void {
 }
 
 export const StorageService = {
-  getUser: (): User => safeGet(KEYS.USER, INITIAL_USER),
+  getUser: (): User => {
+    const stored = safeGet<Partial<User>>(KEYS.USER, INITIAL_USER);
+    return { ...INITIAL_USER, ...stored };
+  },
   saveUser: (user: User): void => {
     safeSet(KEYS.USER, user);
     StorageService.enqueueSync('profile', 'update', `User profile updated: ${user.name}`);
   },
 
-  getCourses: (): Course[] => safeGet(KEYS.COURSES, INITIAL_COURSES),
+  // Combined courses catalogue
+  getCourses: (): Course[] => {
+    const stored = safeGet<Course[]>(KEYS.COURSES, []);
+    if (stored.length === 0) {
+      // Seed combined courses
+      const allSeed = [...INITIAL_COURSES, ...EXTENDED_DISCIPLINE_COURSES.filter(ec => !INITIAL_COURSES.some(c => c.code === ec.code))];
+      safeSet(KEYS.COURSES, allSeed);
+      return allSeed;
+    }
+    // If only 4 initial courses exist, auto-merge extended disciplines
+    if (stored.length <= 4) {
+      const merged = [...stored, ...EXTENDED_DISCIPLINE_COURSES.filter(ec => !stored.some(c => c.code === ec.code))];
+      safeSet(KEYS.COURSES, merged);
+      return merged;
+    }
+    return stored;
+  },
   saveCourses: (courses: Course[]): void => {
     safeSet(KEYS.COURSES, courses);
     StorageService.enqueueSync('course', 'update', `Course catalogue updated (${courses.length} courses)`);
+  },
+  enrollInCourse: (courseId: string): Course[] => {
+    const courses = StorageService.getCourses();
+    const updated = courses.map(c => {
+      if (c.id === courseId) {
+        return {
+          ...c,
+          enrollmentStatus: 'enrolled' as const,
+          enrolledCount: (c.enrolledCount || 0) + 1
+        };
+      }
+      return c;
+    });
+    StorageService.saveCourses(updated);
+    return updated;
+  },
+  dropCourse: (courseId: string): Course[] => {
+    const courses = StorageService.getCourses();
+    const updated = courses.map(c => {
+      if (c.id === courseId) {
+        return {
+          ...c,
+          enrollmentStatus: 'available' as const,
+          enrolledCount: Math.max(0, (c.enrolledCount || 1) - 1)
+        };
+      }
+      return c;
+    });
+    StorageService.saveCourses(updated);
+    return updated;
+  },
+  toggleBookmarkCourse: (courseId: string): Course[] => {
+    const courses = StorageService.getCourses();
+    const updated = courses.map(c => c.id === courseId ? { ...c, isBookmarked: !c.isBookmarked } : c);
+    StorageService.saveCourses(updated);
+    return updated;
   },
 
   getEvents: (): CalendarEvent[] => safeGet(KEYS.EVENTS, INITIAL_EVENTS),
@@ -260,23 +355,559 @@ export const StorageService = {
     safeSet(KEYS.SIMULATED_OFFLINE, val);
   },
 
+  // --------------------------------------------------------------------------
+  // STUDY MATERIALS HUB
+  // --------------------------------------------------------------------------
+  getStudyMaterials: (): StudyMaterial[] => safeGet(KEYS.STUDY_MATERIALS, INITIAL_STUDY_MATERIALS),
+  saveStudyMaterials: (items: StudyMaterial[]): void => {
+    safeSet(KEYS.STUDY_MATERIALS, items);
+  },
+  saveStudyMaterial: (item: StudyMaterial): StudyMaterial[] => {
+    const list = StorageService.getStudyMaterials();
+    const existingIdx = list.findIndex(m => m.id === item.id);
+    let updated: StudyMaterial[];
+    if (existingIdx >= 0) {
+      updated = [...list];
+      updated[existingIdx] = item;
+    } else {
+      updated = [item, ...list];
+    }
+    StorageService.saveStudyMaterials(updated);
+    return updated;
+  },
+  addStudyMaterial: (item: StudyMaterial): StudyMaterial[] => {
+    const list = StorageService.getStudyMaterials();
+    const updated = [item, ...list];
+    StorageService.saveStudyMaterials(updated);
+    StorageService.enqueueSync('course', 'create', `Uploaded study material: ${item.title}`);
+    return updated;
+  },
+  toggleBookmarkMaterial: (id: string): StudyMaterial[] => {
+    const list = StorageService.getStudyMaterials();
+    const updated = list.map(m => m.id === id ? { ...m, isBookmarked: !m.isBookmarked } : m);
+    StorageService.saveStudyMaterials(updated);
+    return updated;
+  },
+  reportMaterial: (id: string): StudyMaterial[] => {
+    const list = StorageService.getStudyMaterials();
+    const updated = list.map(m => m.id === id ? { ...m, isReported: true } : m);
+    StorageService.saveStudyMaterials(updated);
+    return updated;
+  },
+  deleteStudyMaterial: (id: string): StudyMaterial[] => {
+    const list = StorageService.getStudyMaterials();
+    const updated = list.filter(m => m.id !== id);
+    StorageService.saveStudyMaterials(updated);
+    return updated;
+  },
+  incrementDownloadCount: (id: string): StudyMaterial[] => {
+    const list = StorageService.getStudyMaterials();
+    const updated = list.map(m => m.id === id ? { ...m, downloadCount: (m.downloadCount || 0) + 1 } : m);
+    StorageService.saveStudyMaterials(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // DISCUSSION & CALL-PLANNING HUB
+  // --------------------------------------------------------------------------
+  getDiscussionCalls: (): DiscussionCall[] => safeGet(KEYS.DISCUSSION_CALLS, INITIAL_CALL_SESSIONS),
+  saveDiscussionCalls: (items: DiscussionCall[]): void => {
+    safeSet(KEYS.DISCUSSION_CALLS, items);
+  },
+  addDiscussionCall: (call: DiscussionCall): DiscussionCall[] => {
+    const list = StorageService.getDiscussionCalls();
+    const updated = [call, ...list];
+    StorageService.saveDiscussionCalls(updated);
+    StorageService.enqueueSync('event', 'create', `Created discussion call: ${call.title}`);
+    return updated;
+  },
+  updateDiscussionCall: (call: DiscussionCall): DiscussionCall[] => {
+    const list = StorageService.getDiscussionCalls();
+    const updated = list.map(c => c.id === call.id ? call : c);
+    StorageService.saveDiscussionCalls(updated);
+    return updated;
+  },
+  rsvpDiscussionCall: (callId: string, userId: string, response: 'going' | 'maybe' | 'cannot'): DiscussionCall[] => {
+    const list = StorageService.getDiscussionCalls();
+    const updated = list.map(c => {
+      if (c.id !== callId) return c;
+      const going = (c.rsvpGoing || []).filter(u => u !== userId);
+      const maybe = (c.rsvpMaybe || []).filter(u => u !== userId);
+      const cannot = (c.rsvpCannot || []).filter(u => u !== userId);
+      if (response === 'going') going.push(userId);
+      if (response === 'maybe') maybe.push(userId);
+      if (response === 'cannot') cannot.push(userId);
+      return { ...c, rsvpGoing: going, rsvpMaybe: maybe, rsvpCannot: cannot };
+    });
+    StorageService.saveDiscussionCalls(updated);
+    return updated;
+  },
+  toggleAddCallToTimetable: (callId: string): DiscussionCall[] => {
+    const list = StorageService.getDiscussionCalls();
+    const updated = list.map(c => c.id === callId ? { ...c, addedToTimetable: !c.addedToTimetable } : c);
+    StorageService.saveDiscussionCalls(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // ENTERTAINMENT & LEISURE HUB
+  // --------------------------------------------------------------------------
+  getLeisureEvents: (): LeisureEvent[] => safeGet(KEYS.LEISURE_EVENTS, INITIAL_LEISURE_EVENTS),
+  saveLeisureEvents: (items: LeisureEvent[]): void => {
+    safeSet(KEYS.LEISURE_EVENTS, items);
+  },
+  addLeisureEvent: (evt: LeisureEvent): LeisureEvent[] => {
+    const list = StorageService.getLeisureEvents();
+    const updated = [evt, ...list];
+    StorageService.saveLeisureEvents(updated);
+    return updated;
+  },
+  rsvpLeisureEvent: (eventId: string, userId: string, status: 'going' | 'interested' | 'not_going'): LeisureEvent[] => {
+    const list = StorageService.getLeisureEvents();
+    const updated = list.map(e => {
+      if (e.id !== eventId) return e;
+      const going = (e.rsvpGoing || []).filter(u => u !== userId);
+      const interested = (e.rsvpInterested || []).filter(u => u !== userId);
+      const notGoing = (e.rsvpNotGoing || []).filter(u => u !== userId);
+      if (status === 'going') going.push(userId);
+      if (status === 'interested') interested.push(userId);
+      if (status === 'not_going') notGoing.push(userId);
+      return { ...e, rsvpGoing: going, rsvpInterested: interested, rsvpNotGoing: notGoing };
+    });
+    StorageService.saveLeisureEvents(updated);
+    return updated;
+  },
+  toggleBookmarkLeisure: (eventId: string): LeisureEvent[] => {
+    const list = StorageService.getLeisureEvents();
+    const updated = list.map(e => e.id === eventId ? { ...e, isBookmarked: !e.isBookmarked } : e);
+    StorageService.saveLeisureEvents(updated);
+    return updated;
+  },
+  deleteLeisureEvent: (eventId: string): LeisureEvent[] => {
+    const list = StorageService.getLeisureEvents();
+    const updated = list.filter(e => e.id !== eventId);
+    StorageService.saveLeisureEvents(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // SCHOLARSHIPS & JOB OPPORTUNITIES HUB
+  // --------------------------------------------------------------------------
+  getOpportunities: (): OpportunityItem[] => safeGet(KEYS.OPPORTUNITIES, INITIAL_OPPORTUNITIES),
+  saveOpportunities: (items: OpportunityItem[]): void => {
+    safeSet(KEYS.OPPORTUNITIES, items);
+  },
+  toggleBookmarkOpportunity: (id: string): OpportunityItem[] => {
+    const list = StorageService.getOpportunities();
+    const updated = list.map(o => o.id === id ? { ...o, isBookmarked: !o.isBookmarked } : o);
+    StorageService.saveOpportunities(updated);
+    return updated;
+  },
+  toggleReminderOpportunity: (id: string): OpportunityItem[] => {
+    const list = StorageService.getOpportunities();
+    const updated = list.map(o => o.id === id ? { ...o, hasReminder: !o.hasReminder } : o);
+    StorageService.saveOpportunities(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // STUDENT NETWORK & COMMUNITY PROFILES
+  // --------------------------------------------------------------------------
+  getStudentProfiles: (): StudentNetworkProfile[] => safeGet(KEYS.STUDENT_PROFILES, INITIAL_STUDENT_PROFILES),
+  saveStudentProfiles: (profiles: StudentNetworkProfile[]): void => {
+    safeSet(KEYS.STUDENT_PROFILES, profiles);
+  },
+  sendConnectionRequest: (profileId: string): StudentNetworkProfile[] => {
+    const list = StorageService.getStudentProfiles();
+    const updated = list.map(p => p.id === profileId ? { ...p, connectionStatus: 'pending_sent' as const } : p);
+    StorageService.saveStudentProfiles(updated);
+    return updated;
+  },
+  blockStudentProfile: (profileId: string): StudentNetworkProfile[] => {
+    const list = StorageService.getStudentProfiles();
+    const updated = list.map(p => p.id === profileId ? { ...p, connectionStatus: 'blocked' as const } : p);
+    StorageService.saveStudentProfiles(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // ENDORSEMENT SYSTEM
+  // --------------------------------------------------------------------------
+  getEndorsements: (): EndorsementRecord[] => safeGet(KEYS.ENDORSEMENTS, INITIAL_ENDORSEMENTS),
+  saveEndorsements: (items: EndorsementRecord[]): void => {
+    safeSet(KEYS.ENDORSEMENTS, items);
+  },
+  addEndorsement: (record: Omit<EndorsementRecord, 'id' | 'timestamp'>): EndorsementRecord[] => {
+    const list = StorageService.getEndorsements();
+    // Prevent duplicates from same user to same target
+    const exists = list.some(e => e.targetId === record.targetId && e.endorsedByUserId === record.endorsedByUserId);
+    if (exists) return list;
+
+    const newRecord: EndorsementRecord = {
+      ...record,
+      id: 'end_' + Date.now(),
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    };
+    const updated = [newRecord, ...list];
+    StorageService.saveEndorsements(updated);
+    return updated;
+  },
+  removeEndorsement: (targetId: string, userId: string): EndorsementRecord[] => {
+    const list = StorageService.getEndorsements();
+    const updated = list.filter(e => !(e.targetId === targetId && e.endorsedByUserId === userId));
+    StorageService.saveEndorsements(updated);
+    return updated;
+  },
+  hasUserEndorsed: (targetId: string, userId: string): boolean => {
+    const list = StorageService.getEndorsements();
+    return list.some(e => e.targetId === targetId && e.endorsedByUserId === userId);
+  },
+  getEndorsementCount: (targetId: string): number => {
+    const list = StorageService.getEndorsements();
+    return list.filter(e => e.targetId === targetId).length;
+  },
+
+  // --------------------------------------------------------------------------
+  // ALERTS, REMINDERS & NOTIFICATION MANAGEMENT
+  // --------------------------------------------------------------------------
+  getAlertPreferences: (): AlertPreferences => safeGet(KEYS.ALERT_PREFS, DEFAULT_ALERT_PREFERENCES),
+  saveAlertPreferences: (prefs: AlertPreferences): void => {
+    safeSet(KEYS.ALERT_PREFS, prefs);
+  },
+  getSystemAlerts: (): SystemAlertItem[] => safeGet(KEYS.SYSTEM_ALERTS, INITIAL_SYSTEM_ALERTS),
+  saveSystemAlerts: (alerts: SystemAlertItem[]): void => {
+    safeSet(KEYS.SYSTEM_ALERTS, alerts);
+  },
+  markAlertRead: (id: string): SystemAlertItem[] => {
+    const alerts = StorageService.getSystemAlerts();
+    const updated = alerts.map(a => a.id === id ? { ...a, isRead: true } : a);
+    StorageService.saveSystemAlerts(updated);
+    return updated;
+  },
+  markAllAlertsRead: (): SystemAlertItem[] => {
+    const alerts = StorageService.getSystemAlerts();
+    const updated = alerts.map(a => ({ ...a, isRead: true }));
+    StorageService.saveSystemAlerts(updated);
+    return updated;
+  },
+  dismissAlert: (id: string): SystemAlertItem[] => {
+    const alerts = StorageService.getSystemAlerts();
+    const updated = alerts.map(a => a.id === id ? { ...a, isDismissed: true } : a);
+    StorageService.saveSystemAlerts(updated);
+    return updated;
+  },
+  snoozeAlert: (id: string, minutes: number): SystemAlertItem[] => {
+    const alerts = StorageService.getSystemAlerts();
+    const snoozedUntil = new Date(Date.now() + minutes * 60000).toISOString();
+    const updated = alerts.map(a => a.id === id ? { ...a, snoozedUntil, isDismissed: false } : a);
+    StorageService.saveSystemAlerts(updated);
+    return updated;
+  },
+  addSystemAlert: (alert: Omit<SystemAlertItem, 'id' | 'timestamp' | 'isRead' | 'isDismissed'>): SystemAlertItem[] => {
+    const alerts = StorageService.getSystemAlerts();
+    const newAlert: SystemAlertItem = {
+      ...alert,
+      id: 'alt_' + Date.now(),
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      isRead: false,
+      isDismissed: false,
+    };
+    const updated = [newAlert, ...alerts];
+    StorageService.saveSystemAlerts(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // QR CODE ATTENDANCE TRACKING & LECTURER SESSIONS
+  // --------------------------------------------------------------------------
+  getQRSessions: (): LecturerQRCodeSession[] => {
+    const defaultSessions: LecturerQRCodeSession[] = [
+      {
+        id: 'qr_sess_1',
+        courseCode: 'CS 211',
+        courseTitle: 'Data Structures and Algorithms',
+        lecturerName: 'Dr. J. Mvungi',
+        sessionTopic: 'Binary Search Trees & Balanced AVL Trees',
+        hall: 'Lecture Theatre B, CoICT',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 90).toISOString(), // 90 mins active
+        verificationToken: 'CF-TZ-CS211-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-2114',
+        attendanceCount: 42,
+      },
+      {
+        id: 'qr_sess_2',
+        courseCode: 'LAW 110',
+        courseTitle: 'Constitutional Law of Tanzania',
+        lecturerName: 'Prof. I. Shivji',
+        sessionTopic: 'Separation of Powers & Judicial Review in East Africa',
+        hall: 'Mlimani Law Theatre 1',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
+        verificationToken: 'CF-TZ-LAW110-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-1108',
+        attendanceCount: 88,
+      },
+      {
+        id: 'qr_sess_3',
+        courseCode: 'MD 301',
+        courseTitle: 'Systemic Pathology & Morbid Anatomy',
+        lecturerName: 'Dr. F. Massawe',
+        sessionTopic: 'Granulomatous Inflammation & Clinical Case Analysis',
+        hall: 'MUHAS Pathology Lab 3',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 120).toISOString(),
+        verificationToken: 'CF-TZ-MD301-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-3019',
+        attendanceCount: 35,
+      }
+    ];
+    return safeGet(KEYS.QR_SESSIONS, defaultSessions);
+  },
+
+  saveQRSessions: (sessions: LecturerQRCodeSession[]): void => {
+    safeSet(KEYS.QR_SESSIONS, sessions);
+  },
+
+  createQRSession: (session: Omit<LecturerQRCodeSession, 'id' | 'verificationToken' | 'attendanceCount'>): LecturerQRCodeSession => {
+    const sessions = StorageService.getQRSessions();
+    const token = `CF-TZ-${session.courseCode.replace(/\s+/g, '')}-${Date.now().toString(36).toUpperCase()}`;
+    const newSession: LecturerQRCodeSession = {
+      ...session,
+      id: 'qr_sess_' + Date.now(),
+      verificationToken: token,
+      attendanceCount: 0,
+    };
+    const updated = [newSession, ...sessions];
+    StorageService.saveQRSessions(updated);
+    return newSession;
+  },
+
+  getAttendanceRecords: (): AttendanceRecord[] => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultRecords: AttendanceRecord[] = [
+      {
+        id: 'att_rec_1',
+        courseCode: 'CS 211',
+        courseTitle: 'Data Structures and Algorithms',
+        studentId: 'user_tz_001',
+        studentName: 'Amani Juma',
+        studentRegNo: '2023-04-08912',
+        sessionTitle: 'Array Lists & Linked Data Structures',
+        sessionDate: todayStr,
+        timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+        markedVia: 'qr_scanner',
+        status: 'present',
+        locationRecorded: 'CoICT Kijitonyama Campus',
+      },
+      {
+        id: 'att_rec_2',
+        courseCode: 'LAW 110',
+        courseTitle: 'Constitutional Law of Tanzania',
+        studentId: 'user_tz_001',
+        studentName: 'Amani Juma',
+        studentRegNo: '2023-04-08912',
+        sessionTitle: 'Historical Development of Constitutionalism',
+        sessionDate: todayStr,
+        timestamp: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
+        markedVia: 'qr_scanner',
+        status: 'present',
+        locationRecorded: 'UDOSM Main Campus',
+      }
+    ];
+    return safeGet(KEYS.ATTENDANCE_RECORDS, defaultRecords);
+  },
+
+  saveAttendanceRecords: (records: AttendanceRecord[]): void => {
+    safeSet(KEYS.ATTENDANCE_RECORDS, records);
+  },
+
+  markAttendance: (record: Omit<AttendanceRecord, 'id' | 'timestamp'>): { record: AttendanceRecord; updatedCourses: Course[] } => {
+    const records = StorageService.getAttendanceRecords();
+    const newRecord: AttendanceRecord = {
+      ...record,
+      id: 'att_' + Date.now(),
+      timestamp: new Date().toISOString(),
+    };
+    // Avoid exact duplicate on same course, sessionDate, studentId
+    const filtered = records.filter(r => !(r.courseCode.toLowerCase() === record.courseCode.toLowerCase() && r.sessionDate === record.sessionDate && r.studentId === record.studentId));
+    const updatedRecords = [newRecord, ...filtered];
+    StorageService.saveAttendanceRecords(updatedRecords);
+
+    // Update course attendance percentage
+    const courses = StorageService.getCourses();
+    const updatedCourses = courses.map(c => {
+      if (c.code.toLowerCase() === record.courseCode.toLowerCase()) {
+        const studentCourseRecords = updatedRecords.filter(
+          r => r.courseCode.toLowerCase() === c.code.toLowerCase() && r.studentId === record.studentId
+        );
+        const presentCount = studentCourseRecords.filter(r => r.status === 'present' || r.status === 'late').length;
+        const totalEstimated = Math.max(10, presentCount + 2);
+        const newPercentage = Math.min(100, Math.round((presentCount / totalEstimated) * 100));
+        return {
+          ...c,
+          attendance: Math.max(c.attendance || 80, newPercentage),
+        };
+      }
+      return c;
+    });
+    StorageService.saveCourses(updatedCourses);
+
+    // Increment QR session attendanceCount
+    const sessions = StorageService.getQRSessions();
+    const updatedSessions = sessions.map(s => {
+      if (s.courseCode.toLowerCase() === record.courseCode.toLowerCase()) {
+        return { ...s, attendanceCount: s.attendanceCount + 1 };
+      }
+      return s;
+    });
+    StorageService.saveQRSessions(updatedSessions);
+
+    return { record: newRecord, updatedCourses };
+  },
+
+  // --------------------------------------------------------------------------
+  // STUDY GROUPS & DIRECT CHAT MESSAGING (LOCAL DEMO STORAGE)
+  // --------------------------------------------------------------------------
+  getStudyGroups: (): StudyGroup[] => {
+    return safeGet<StudyGroup[]>(KEYS.STUDY_GROUPS, INITIAL_STUDY_GROUPS);
+  },
+
+  saveStudyGroups: (groups: StudyGroup[]): void => {
+    safeSet(KEYS.STUDY_GROUPS, groups);
+    StorageService.enqueueSync('profile', 'update', `Study groups updated (${groups.length} active)`);
+  },
+
+  saveStudyGroup: (group: StudyGroup): StudyGroup[] => {
+    const list = StorageService.getStudyGroups();
+    const idx = list.findIndex(g => g.id === group.id);
+    let updated: StudyGroup[];
+    if (idx >= 0) {
+      updated = [...list];
+      updated[idx] = group;
+    } else {
+      updated = [group, ...list];
+    }
+    StorageService.saveStudyGroups(updated);
+    return updated;
+  },
+
+  getDirectConversations: (): DirectConversation[] => {
+    return safeGet<DirectConversation[]>(KEYS.DIRECT_CONVERSATIONS, INITIAL_DIRECT_CONVERSATIONS);
+  },
+
+  saveDirectConversations: (conversations: DirectConversation[]): void => {
+    safeSet(KEYS.DIRECT_CONVERSATIONS, conversations);
+  },
+
+  saveDirectConversation: (conversation: DirectConversation): DirectConversation[] => {
+    const list = StorageService.getDirectConversations();
+    const idx = list.findIndex(c => c.id === conversation.id);
+    let updated: DirectConversation[];
+    if (idx >= 0) {
+      updated = [...list];
+      updated[idx] = conversation;
+    } else {
+      updated = [conversation, ...list];
+    }
+    StorageService.saveDirectConversations(updated);
+    return updated;
+  },
+
+  // --------------------------------------------------------------------------
+  // GENERAL APPLICATION SETTINGS
+  // --------------------------------------------------------------------------
+  getGeneralSettings: () => {
+    return safeGet(KEYS.GENERAL_SETTINGS, {
+      lectureArrivalAlerts: true,
+      catDeadlineCountdown: true,
+      gradeReleaseAlerts: true,
+      emailWeeklyDigest: false,
+      emailUrgentTimetable: true,
+      whatsappDailyBrief: false,
+      whatsappEmergencyCancel: true,
+      whatsappNumber: '+255 754 123 456',
+      softSoundEnabled: true,
+      soundVolume: 75,
+      quietHoursEnabled: true,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '06:30',
+      timezone: 'Africa/Dar_es_Salaam',
+      calendarViewDefault: 'week',
+      firstDayOfWeek: 'Monday',
+      reminderLeadTime: '15_mins',
+      language: 'en',
+      theme: 'light',
+      onlinePresence: true,
+      readReceipts: true,
+      mfaActive: true,
+      sessionTimeoutMinutes: 60,
+    });
+  },
+
+  saveGeneralSettings: (settings: any): void => {
+    safeSet(KEYS.GENERAL_SETTINGS, settings);
+  },
+
+  // --------------------------------------------------------------------------
+  // DEMO DATA MANAGEMENT: EXPORT, IMPORT, AND FACTORY RESET
+  // --------------------------------------------------------------------------
+  exportAllDataAsJSON: (): string => {
+    const dump = {
+      version: '2.5.0',
+      exportedAt: new Date().toISOString(),
+      user: StorageService.getUser(),
+      courses: StorageService.getCourses(),
+      timetable: StorageService.getTimetable(),
+      events: StorageService.getEvents(),
+      tasks: StorageService.getTasks(),
+      studyMaterials: StorageService.getStudyMaterials(),
+      studyGroups: StorageService.getStudyGroups(),
+      directConversations: StorageService.getDirectConversations(),
+      discussionCalls: StorageService.getDiscussionCalls(),
+      leisureEvents: StorageService.getLeisureEvents(),
+      opportunities: StorageService.getOpportunities(),
+      studentProfiles: StorageService.getStudentProfiles(),
+      endorsements: StorageService.getEndorsements(),
+      alertPreferences: StorageService.getAlertPreferences(),
+      systemAlerts: StorageService.getSystemAlerts(),
+      payments: StorageService.getPayments(),
+      generalSettings: StorageService.getGeneralSettings(),
+    };
+    return JSON.stringify(dump, null, 2);
+  },
+
+  importAllDataFromJSON: (jsonString: string): boolean => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (parsed.user) safeSet(KEYS.USER, parsed.user);
+      if (parsed.courses) safeSet(KEYS.COURSES, parsed.courses);
+      if (parsed.timetable) safeSet(KEYS.TIMETABLE, parsed.timetable);
+      if (parsed.events) safeSet(KEYS.EVENTS, parsed.events);
+      if (parsed.tasks) safeSet(KEYS.TASKS, parsed.tasks);
+      if (parsed.studyMaterials) safeSet(KEYS.STUDY_MATERIALS, parsed.studyMaterials);
+      if (parsed.studyGroups) safeSet(KEYS.STUDY_GROUPS, parsed.studyGroups);
+      if (parsed.directConversations) safeSet(KEYS.DIRECT_CONVERSATIONS, parsed.directConversations);
+      if (parsed.discussionCalls) safeSet(KEYS.DISCUSSION_CALLS, parsed.discussionCalls);
+      if (parsed.leisureEvents) safeSet(KEYS.LEISURE_EVENTS, parsed.leisureEvents);
+      if (parsed.opportunities) safeSet(KEYS.OPPORTUNITIES, parsed.opportunities);
+      if (parsed.studentProfiles) safeSet(KEYS.STUDENT_PROFILES, parsed.studentProfiles);
+      if (parsed.endorsements) safeSet(KEYS.ENDORSEMENTS, parsed.endorsements);
+      if (parsed.alertPreferences) safeSet(KEYS.ALERT_PREFS, parsed.alertPreferences);
+      if (parsed.systemAlerts) safeSet(KEYS.SYSTEM_ALERTS, parsed.systemAlerts);
+      if (parsed.payments) safeSet(KEYS.PAYMENTS, parsed.payments);
+      if (parsed.generalSettings) safeSet(KEYS.GENERAL_SETTINGS, parsed.generalSettings);
+      return true;
+    } catch (e) {
+      console.error('Failed to import JSON dump:', e);
+      return false;
+    }
+  },
+
   resetToDefaults: (): void => {
-    localStorage.removeItem(KEYS.USER);
-    localStorage.removeItem(KEYS.COURSES);
-    localStorage.removeItem(KEYS.EVENTS);
-    localStorage.removeItem(KEYS.TASKS);
-    localStorage.removeItem(KEYS.COMMUNITIES);
-    localStorage.removeItem(KEYS.PAYMENTS);
-    localStorage.removeItem(KEYS.NOTIFICATIONS);
-    localStorage.removeItem(KEYS.ANNOUNCEMENTS);
-    localStorage.removeItem(KEYS.UNIVERSITIES);
-    localStorage.removeItem(KEYS.STUDY_RESOURCES);
-    localStorage.removeItem(KEYS.BREAKTHROUGHS);
-    localStorage.removeItem(KEYS.TIMETABLE);
-    localStorage.removeItem(KEYS.MANAGED_USERS);
-    localStorage.removeItem(KEYS.ROLE_PERMISSIONS);
-    localStorage.removeItem(KEYS.SYNC_QUEUE);
-    localStorage.removeItem(KEYS.LOGS);
-    localStorage.removeItem(KEYS.SIMULATED_OFFLINE);
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
   }
 };

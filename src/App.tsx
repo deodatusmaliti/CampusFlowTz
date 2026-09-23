@@ -40,6 +40,15 @@ import { TimetableView } from './components/TimetableView';
 import { UserManagementView } from './components/UserManagementView';
 import { SystemArchitectureView } from './components/SystemArchitectureView';
 import { SettingsView } from './components/SettingsView';
+import { AcademicProfileView } from './components/AcademicProfileView';
+import { AttendanceView } from './components/AttendanceView';
+import { CourseEnrollmentView } from './components/CourseEnrollmentView';
+import { StudyMaterialsView } from './components/StudyMaterialsView';
+import { DiscussionsHubView } from './components/DiscussionsHubView';
+import { LeisureEventsView } from './components/LeisureEventsView';
+import { OpportunitiesView } from './components/OpportunitiesView';
+import { StudentNetworkView } from './components/StudentNetworkView';
+import { AlertsManagementView } from './components/AlertsManagementView';
 
 import { AddEventModal } from './components/AddEventModal';
 import { AddTaskModal } from './components/AddTaskModal';
@@ -792,10 +801,23 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'profile' && (
+          <AcademicProfileView
+            currentUser={currentUser}
+            onUpdateUser={(updated) => {
+              setCurrentUser(updated);
+              StorageService.saveUser(updated);
+              setPendingSyncCount(StorageService.getSyncQueue().filter(q => q.status === 'pending').length);
+            }}
+            onNotify={showToast}
+          />
+        )}
+
         {activeTab === 'timetable' && (
           <TimetableView
             user={currentUser}
             timetable={timetable}
+            courses={courses}
             onOpenImportModal={() => setIsTimetableImportOpen(true)}
             onOpenCourseChat={(code) => {
               const c = courses.find(cr => cr.code.toLowerCase() === code.toLowerCase()) || courses[0];
@@ -804,9 +826,56 @@ export default function App() {
             onAddCalendarEvent={(event) => {
               handleSaveEvent(event);
             }}
+            onAddTimetableSlot={(slot) => {
+              handleImportTimetableSlots([{ ...slot, id: 'slot_' + Date.now() }], 'merge');
+            }}
             onOpenAIAssistant={handleOpenAIChatWithPrompt}
             onDeleteSlot={handleDeleteTimetableSlot}
             onResetSampleTimetable={handleResetSampleTimetable}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'attendance' && (
+          <AttendanceView
+            currentUser={currentUser}
+            courses={courses}
+            onCoursesUpdated={(updated) => {
+              setCourses(updated);
+              StorageService.saveCourses(updated);
+            }}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'course-enrollment' && (
+          <CourseEnrollmentView
+            user={currentUser}
+            courses={courses}
+            onCoursesUpdated={(updated) => {
+              setCourses(updated);
+              StorageService.saveCourses(updated);
+            }}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'materials' && (
+          <StudyMaterialsView
+            user={currentUser}
+            courses={courses}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'discussions' && (
+          <DiscussionsHubView
+            user={currentUser}
+            courses={courses}
+            onAddCalendarEvent={(event) => {
+              handleSaveEvent(event);
+            }}
+            onNotify={showToast}
           />
         )}
 
@@ -870,6 +939,40 @@ export default function App() {
         )}
 
         {activeTab === 'gpa' && <GpaCalculatorView />}
+
+        {activeTab === 'network' && (
+          <StudentNetworkView
+            currentUser={currentUser}
+            courses={courses}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'leisure' && (
+          <LeisureEventsView
+            user={currentUser}
+            onAddCalendarEvent={handleSaveEvent}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'opportunities' && (
+          <OpportunitiesView
+            user={currentUser}
+            onNotify={showToast}
+          />
+        )}
+
+        {activeTab === 'alerts' && (
+          <AlertsManagementView
+            user={currentUser}
+            onNavigateTab={(tab) => {
+              setActiveTab(tab as ActiveTab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNotify={showToast}
+          />
+        )}
 
         {activeTab === 'community' && (
           <CommunitiesView

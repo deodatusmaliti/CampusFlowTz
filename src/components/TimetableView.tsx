@@ -22,18 +22,21 @@ import {
   GraduationCap,
   ArrowRight
 } from 'lucide-react';
-import { DayOfWeek, TimetableSlot, User, CalendarEvent } from '../types';
+import { DayOfWeek, TimetableSlot, User, CalendarEvent, Course } from '../types';
 import { TimeService } from '../services/timeService';
 
 interface TimetableViewProps {
   user: User;
   timetable: TimetableSlot[];
+  courses?: Course[];
   onOpenImportModal: () => void;
   onOpenCourseChat: (courseCode: string) => void;
   onAddCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void;
+  onAddTimetableSlot?: (slot: Omit<TimetableSlot, 'id'>) => void;
   onOpenAIAssistant: (prompt?: string) => void;
   onDeleteSlot: (id: string) => void;
   onResetSampleTimetable: () => void;
+  onNotify?: (msg: string) => void;
 }
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -41,12 +44,15 @@ const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
 export const TimetableView: React.FC<TimetableViewProps> = ({
   user,
   timetable,
+  courses = [],
   onOpenImportModal,
   onOpenCourseChat,
   onAddCalendarEvent,
+  onAddTimetableSlot,
   onOpenAIAssistant,
   onDeleteSlot,
   onResetSampleTimetable,
+  onNotify,
 }) => {
   // Determine current day of week
   const todayName = useMemo<DayOfWeek>(() => {
@@ -62,6 +68,45 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [selectedVenueGuide, setSelectedVenueGuide] = useState<string | null>(null);
+
+  // Create Timetable Entry Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createEventType, setCreateEventType] = useState<'academic' | 'personal'>('academic');
+  const [formCourseCode, setFormCourseCode] = useState(courses?.[0]?.code || 'ZOO 201');
+  const [formCourseName, setFormCourseName] = useState(courses?.[0]?.title || 'Invertebrate Zoology');
+  const [formHall, setFormHall] = useState('Biology Hall 01');
+  const [formBuilding, setFormBuilding] = useState('School of Aquatic Sciences & Fisheries');
+  const [formLecturer, setFormLecturer] = useState('Dr. Juma Mwita');
+  const [formDay, setFormDay] = useState<DayOfWeek>('Monday');
+  const [formStartTime, setFormStartTime] = useState('08:00');
+  const [formEndTime, setFormEndTime] = useState('10:00');
+  const [formYear, setFormYear] = useState<number>(2);
+  const [formSemester, setFormSemester] = useState<number>(1);
+  const [formType, setFormType] = useState<'Lecture' | 'Practical' | 'Tutorial' | 'Seminar'>('Lecture');
+  const [formNotes, setFormNotes] = useState('');
+
+  // Personal Event fields
+  const [personalTitle, setPersonalTitle] = useState('');
+  const [personalDate, setPersonalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [personalStartTime, setPersonalStartTime] = useState('14:00');
+  const [personalEndTime, setPersonalEndTime] = useState('15:30');
+  const [personalLocation, setPersonalLocation] = useState('Campus Library Study Room');
+  const [personalCategory, setPersonalCategory] = useState<'assignment' | 'exam' | 'personal' | 'lecture'>('personal');
+  const [personalReminder, setPersonalReminder] = useState<number>(15);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Time conflict detection
+  const conflictWarning = useMemo(() => {
+    if (createEventType !== 'academic') return null;
+    const overlap = timetable.find(slot => {
+      if (slot.day !== formDay) return false;
+      return formStartTime < slot.endTime && formEndTime > slot.startTime;
+    });
+    if (overlap) {
+      return `Schedule Conflict Warning: Overlaps with ${overlap.courseCode} (${overlap.startTime} - ${overlap.endTime}) in ${overlap.hall}.`;
+    }
+    return null;
+  }, [timetable, createEventType, formDay, formStartTime, formEndTime]);
 
   // Active or upcoming period calculation
   const currentStatus = useMemo(() => {
@@ -139,6 +184,84 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     link.href = url;
     link.download = `CampusFlow_${user.university.replace(/[^a-zA-Z0-9]/g, '_')}_Timetable.csv`;
     link.click();
+    onNotify?.('Timetable exported to CSV.');
+  };
+
+  // Export Timetable as iCalendar (.ics)
+  const handleExportICS = () => {
+    let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CampusFlow TZ//Academic Timetable//EN\nCALSCALE:GREGORIAN\n";
+    filteredSlots.forEach((s, idx) => {
+      ics += `BEGIN:VEVENT\nUID:cf_slot_${idx}_${Date.now()}@campusflow.tz\nSUMMARY:${s.courseCode}: ${s.courseName} (${s.type})\nDESCRIPTION:Lecturer: ${s.lecturer}\\nVenue: ${s.hall}, ${s.building || ''}\\nNotes: ${s.notes || ''}\nLOCATION:${s.hall}, ${s.building || ''}\nSTATUS:CONFIRMED\nEND:VEVENT\n`;
+    });
+    ics += "END:VCALENDAR";
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CampusFlow_Academic_Timetable.ics`;
+    link.click();
+    onNotify?.('Timetable exported in iCalendar (.ics) format.');
+  };
+
+  const handleSaveTimetableEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (createEventType === 'academic') {
+      if (!formCourseCode.trim() || !formHall.trim()) {
+        setFormError('Please enter a course code and lecture hall.');
+        return;
+      }
+      if (formEndTime <= formStartTime) {
+        setFormError('End time must be after start time.');
+        return;
+      }
+
+      const newSlot: Omit<TimetableSlot, 'id'> = {
+        courseCode: formCourseCode.trim().toUpperCase(),
+        courseName: formCourseName.trim(),
+        day: formDay,
+        startTime: formStartTime,
+        endTime: formEndTime,
+        hall: formHall.trim(),
+        building: formBuilding.trim(),
+        lecturer: formLecturer.trim(),
+        year: formYear,
+        semester: formSemester,
+        type: formType,
+        notes: formNotes.trim() || undefined,
+        color: formType === 'Practical' ? '#d97706' : formType === 'Seminar' ? '#4f46e5' : '#0284c7',
+      };
+
+      if (onAddTimetableSlot) {
+        onAddTimetableSlot(newSlot);
+      }
+      onNotify?.(`Added ${newSlot.courseCode} (${newSlot.type}) to ${newSlot.day} timetable!`);
+      setIsCreateModalOpen(false);
+    } else {
+      if (!personalTitle.trim()) {
+        setFormError('Please enter an event title.');
+        return;
+      }
+      if (personalEndTime <= personalStartTime) {
+        setFormError('End time must be after start time.');
+        return;
+      }
+
+      onAddCalendarEvent({
+        title: personalTitle.trim(),
+        description: `Personal campus event: ${personalTitle.trim()}`,
+        date: personalDate,
+        startTime: personalStartTime,
+        endTime: personalEndTime,
+        location: personalLocation.trim(),
+        category: personalCategory,
+        reminderMinutes: personalReminder,
+      });
+
+      onNotify?.(`Added "${personalTitle}" to your calendar with ${personalReminder}m alert reminder!`);
+      setIsCreateModalOpen(false);
+    }
   };
 
   return (
@@ -168,23 +291,44 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <button
-            id="btn-upload-timetable"
-            onClick={onOpenImportModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs hover:shadow-md active:scale-98"
+            id="btn-create-timetable"
+            onClick={() => { setFormError(null); setIsCreateModalOpen(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
           >
-            <Sparkles className="w-4 h-4 text-sky-200" />
-            <span>Upload Timetable (AI / CSV / Manual)</span>
+            <CalendarPlus className="w-4 h-4 text-emerald-200" />
+            <span>Create timetable</span>
           </button>
 
           <button
-            id="btn-export-timetable"
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
-            title="Export to CSV Spreadsheet"
+            id="btn-upload-timetable"
+            onClick={onOpenImportModal}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs hover:shadow-md active:scale-98"
           >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <Sparkles className="w-4 h-4 text-sky-200" />
+            <span>Import Timetable</span>
           </button>
+
+          <div className="flex items-center rounded-xl bg-slate-100 border border-slate-200 overflow-hidden">
+            <button
+              id="btn-export-timetable"
+              onClick={handleExportCSV}
+              className="px-3 py-2 text-slate-700 hover:bg-slate-200 text-xs font-bold transition-colors flex items-center gap-1.5"
+              title="Export to CSV Spreadsheet"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <span>CSV</span>
+            </button>
+            <span className="text-slate-300">|</span>
+            <button
+              id="btn-export-ics"
+              onClick={handleExportICS}
+              className="px-3 py-2 text-slate-700 hover:bg-slate-200 text-xs font-bold transition-colors flex items-center gap-1.5"
+              title="Export to iCalendar / Apple / Google Calendar (.ics)"
+            >
+              <CalendarIcon className="w-3.5 h-3.5 text-slate-500" />
+              <span>ICS</span>
+            </button>
+          </div>
 
           <button
             onClick={onResetSampleTimetable}
@@ -690,6 +834,313 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* CREATE TIMETABLE ENTRY MODAL (ACADEMIC & PERSONAL WORKFLOW) */}
+      {isCreateModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
+          onClick={() => setIsCreateModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${
+                  createEventType === 'academic' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  <CalendarPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Create Timetable Entry</h3>
+                  <p className="text-xs text-slate-500">Add recurring academic slots or personal study events</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Event Type Selector Tabs */}
+            <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-slate-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => { setCreateEventType('academic'); setFormError(null); }}
+                className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  createEventType === 'academic'
+                    ? 'bg-white text-sky-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Academic Slot</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCreateEventType('personal'); setFormError(null); }}
+                className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  createEventType === 'personal'
+                    ? 'bg-white text-emerald-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span>Personal / Study Event</span>
+              </button>
+            </div>
+
+            {/* Error & Conflict Warnings */}
+            {formError && (
+              <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            {conflictWarning && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 flex items-start gap-2 animate-pulse">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                <div>
+                  <b>{conflictWarning}</b>
+                  <p className="text-[11px] text-amber-700 mt-0.5">You can still proceed, or pick a different room or time slot.</p>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveTimetableEntry} className="mt-4 space-y-3.5">
+              {createEventType === 'academic' ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Course Code *</label>
+                      <input
+                        type="text"
+                        value={formCourseCode}
+                        onChange={(e) => {
+                          const code = e.target.value.toUpperCase();
+                          setFormCourseCode(code);
+                          const matched = courses?.find(c => c.code.toUpperCase() === code);
+                          if (matched) {
+                            setFormCourseName(matched.title);
+                            setFormLecturer(matched.lecturer);
+                          }
+                        }}
+                        placeholder="e.g. ZOO 201"
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 font-mono font-bold uppercase"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Session Type *</label>
+                      <select
+                        value={formType}
+                        onChange={(e) => setFormType(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                      >
+                        <option value="Lecture">Lecture</option>
+                        <option value="Practical">Practical / Lab</option>
+                        <option value="Tutorial">Tutorial</option>
+                        <option value="Seminar">Seminar</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Course Title</label>
+                    <input
+                      type="text"
+                      value={formCourseName}
+                      onChange={(e) => setFormCourseName(e.target.value)}
+                      placeholder="e.g. Invertebrate Zoology"
+                      className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Day *</label>
+                      <select
+                        value={formDay}
+                        onChange={(e) => setFormDay(e.target.value as DayOfWeek)}
+                        className="w-full text-xs px-2.5 py-2 rounded-xl border border-slate-200 bg-white"
+                      >
+                        {DAYS_OF_WEEK.map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Start Time *</label>
+                      <input
+                        type="time"
+                        value={formStartTime}
+                        onChange={(e) => setFormStartTime(e.target.value)}
+                        className="w-full text-xs px-2.5 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">End Time *</label>
+                      <input
+                        type="time"
+                        value={formEndTime}
+                        onChange={(e) => setFormEndTime(e.target.value)}
+                        className="w-full text-xs px-2.5 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Hall / Room *</label>
+                      <input
+                        type="text"
+                        value={formHall}
+                        onChange={(e) => setFormHall(e.target.value)}
+                        placeholder="e.g. Biology Lab 04"
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Building / Complex</label>
+                      <input
+                        type="text"
+                        value={formBuilding}
+                        onChange={(e) => setFormBuilding(e.target.value)}
+                        placeholder="e.g. Faculty of Science"
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Instructor / Lecturer</label>
+                      <input
+                        type="text"
+                        value={formLecturer}
+                        onChange={(e) => setFormLecturer(e.target.value)}
+                        placeholder="e.g. Dr. Juma Mwita"
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Semester</label>
+                      <select
+                        value={formSemester}
+                        onChange={(e) => setFormSemester(parseInt(e.target.value))}
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                      >
+                        <option value={1}>Semester 1</option>
+                        <option value={2}>Semester 2</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Event Title *</label>
+                    <input
+                      type="text"
+                      value={personalTitle}
+                      onChange={(e) => setPersonalTitle(e.target.value)}
+                      placeholder="e.g. Midterm Zoology Group Revision"
+                      className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Date *</label>
+                      <input
+                        type="date"
+                        value={personalDate}
+                        onChange={(e) => setPersonalDate(e.target.value)}
+                        className="w-full text-xs px-2.5 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Start Time *</label>
+                      <input
+                        type="time"
+                        value={personalStartTime}
+                        onChange={(e) => setPersonalStartTime(e.target.value)}
+                        className="w-full text-xs px-2.5 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">End Time *</label>
+                      <input
+                        type="time"
+                        value={personalEndTime}
+                        onChange={(e) => setPersonalEndTime(e.target.value)}
+                        className="w-full text-xs px-2.5 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Location / Venue</label>
+                      <input
+                        type="text"
+                        value={personalLocation}
+                        onChange={(e) => setPersonalLocation(e.target.value)}
+                        placeholder="e.g. Science Library Room 3"
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Reminder Notice</label>
+                      <select
+                        value={personalReminder}
+                        onChange={(e) => setPersonalReminder(parseInt(e.target.value))}
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                      >
+                        <option value={15}>15 Minutes Before</option>
+                        <option value={30}>30 Minutes Before</option>
+                        <option value={60}>1 Hour Before</option>
+                        <option value={1440}>1 Day Before</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`px-5 py-2 text-xs font-bold text-white rounded-xl shadow-xs transition-all ${
+                    createEventType === 'academic'
+                      ? 'bg-sky-600 hover:bg-sky-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                >
+                  {createEventType === 'academic' ? 'Save Academic Slot' : 'Add Personal Event'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

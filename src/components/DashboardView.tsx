@@ -23,7 +23,14 @@ import {
   ExternalLink,
   BookCheck,
   RefreshCw,
-  Info
+  Info,
+  QrCode,
+  FolderDown,
+  Video,
+  Users,
+  HeartHandshake,
+  Briefcase,
+  BellRing
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -316,9 +323,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Metric 4: Average Attendance */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-sky-500 transition-all">
+        <div 
+          onClick={() => onNavigate('attendance')}
+          className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-sky-500 hover:shadow-md transition-all cursor-pointer group"
+          title="Click to open QR Attendance Scanner & Records"
+        >
           <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1.5">
-            <span>Lecture Attendance</span>
+            <span className="group-hover:text-sky-700 transition-colors">Lecture Attendance</span>
             <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -327,9 +338,111 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-2xl sm:text-3xl font-black text-emerald-700">{avgAttendance}%</span>
             <span className="text-xs font-bold text-emerald-800">Eligible</span>
           </div>
-          <p className="mt-2 text-[11px] font-bold text-slate-600">
-            Min 75% required for exams
-          </p>
+          <div className="mt-2 flex items-center justify-between text-[11px] font-bold">
+            <span className="text-slate-600">Min 75% required</span>
+            <span className="text-sky-700 group-hover:underline flex items-center gap-0.5">QR Scan →</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Access Campus & Academic Services Hub */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
+            <h2 className="text-sm sm:text-base font-black text-slate-900">Academic & Campus Life Services</h2>
+          </div>
+          <span className="text-[11px] text-slate-500 font-semibold hidden sm:inline">Active Semester Modules</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+          <button
+            onClick={() => onNavigate('attendance')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-sky-400 bg-sky-50/50 hover:bg-sky-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <QrCode className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-sky-800">QR Attendance</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Scan & Codes</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('materials')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <FolderDown className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-emerald-800">Materials</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">PDFs & Notes</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('discussions')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-purple-400 bg-purple-50/40 hover:bg-purple-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <Video className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-purple-800">Study Calls</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Meet & Pods</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('course-enrollment')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-indigo-400 bg-indigo-50/40 hover:bg-indigo-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <GraduationCap className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-800">Enrollment</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Courses & Syllabi</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('network')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-amber-400 bg-amber-50/40 hover:bg-amber-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <Users className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-amber-800">Peer Network</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Pods & Profiles</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('leisure')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-rose-400 bg-rose-50/40 hover:bg-rose-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-rose-100 text-rose-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <HeartHandshake className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-rose-800">Campus Life</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Events & Sports</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('opportunities')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-teal-400 bg-teal-50/40 hover:bg-teal-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <Briefcase className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-teal-800">Opportunities</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Jobs & Grants</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('alerts')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-orange-400 bg-orange-50/40 hover:bg-orange-50 flex flex-col items-center text-center transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+              <BellRing className="w-4 h-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 group-hover:text-orange-800">Alerts & Chimes</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">Sound Rules</span>
+          </button>
         </div>
       </div>
 

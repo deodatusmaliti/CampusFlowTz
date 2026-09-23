@@ -6,6 +6,8 @@ export const AIService = {
     programme?: string;
     courses?: string[];
     category?: string;
+    subjectCategory?: string;
+    limit?: number;
   }): Promise<{ items: ScientificBreakthrough[]; mode: string; timestamp: string; refreshCadenceMinutes: number }> {
     try {
       const res = await fetch('/api/feed/personalized', {

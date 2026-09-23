@@ -22,20 +22,36 @@ import {
   Building,
   Sparkles,
   Clock,
-  Users
+  Users,
+  QrCode,
+  FolderDown,
+  Video,
+  Briefcase,
+  BellRing,
+  GraduationCap,
+  Shield
 } from 'lucide-react';
 import { User, Announcement } from '../types';
 import { AnnouncementsBar } from './AnnouncementsBar';
 
 export type ActiveTab = 
   | 'dashboard'
+  | 'profile'
   | 'timetable'
+  | 'attendance'
   | 'calendar'
   | 'courses'
+  | 'course-enrollment'
+  | 'materials'
+  | 'discussions'
   | 'study'
   | 'tasks'
   | 'gpa'
+  | 'network'
+  | 'leisure'
+  | 'opportunities'
   | 'community'
+  | 'alerts'
   | 'users'
   | 'social'
   | 'payments'
@@ -87,62 +103,47 @@ export const Navigation: React.FC<NavigationProps> = ({
   children,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [timeDisplay, setTimeDisplay] = React.useState(() => {
-    try {
-      const now = new Date();
-      const eatFormatted = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Africa/Dar_es_Salaam',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }).format(now);
-      return { primary: `${eatFormatted} EAT`, badge: 'EAT (UTC+3)' };
-    } catch {
-      return { primary: '09:30 AM EAT', badge: 'EAT' };
-    }
-  });
 
-  React.useEffect(() => {
-    const updateTime = () => {
-      try {
-        const now = new Date();
-        const eatFormatted = new Intl.DateTimeFormat('en-GB', {
-          timeZone: 'Africa/Dar_es_Salaam',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-        }).format(now);
-        setTimeDisplay({ primary: `${eatFormatted} EAT`, badge: 'EAT (UTC+3)' });
-      } catch {}
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const navItems = [
+  const academicHubItems = [
     { id: 'dashboard' as ActiveTab, label: 'Overview', icon: LayoutDashboard },
+    { id: 'profile' as ActiveTab, label: 'Academic Profile', icon: UserIcon, badge: 'Student ID' },
     { id: 'timetable' as ActiveTab, label: 'Timetable', icon: Clock, badge: 'Live' },
+    { id: 'attendance' as ActiveTab, label: 'QR Attendance', icon: QrCode, badge: 'Scanner' },
     { id: 'calendar' as ActiveTab, label: 'Academic Calendar', icon: CalendarDays },
     { id: 'courses' as ActiveTab, label: 'Courses & Syllabus', icon: BookOpen },
+    { id: 'course-enrollment' as ActiveTab, label: 'Course Enrollment', icon: GraduationCap, badge: 'Electives' },
+    { id: 'materials' as ActiveTab, label: 'Study Materials', icon: FolderDown, badge: 'PDFs' },
+    { id: 'discussions' as ActiveTab, label: 'Discussion Calls', icon: Video, badge: 'Meet' },
     { id: 'study' as ActiveTab, label: 'Study & Feeds', icon: Sparkles, badge: 'Feeds' },
     { id: 'tasks' as ActiveTab, label: 'Tasks & Deadlines', icon: CheckSquare },
     { id: 'gpa' as ActiveTab, label: 'GPA Projections', icon: TrendingUp },
+  ];
+
+  const campusLifeItems = [
+    { id: 'network' as ActiveTab, label: 'Student Network', icon: Users, badge: 'Pods' },
+    { id: 'leisure' as ActiveTab, label: 'Leisure & Events', icon: HeartHandshake, badge: 'Sports' },
+    { id: 'opportunities' as ActiveTab, label: 'Opportunities', icon: Briefcase, badge: 'Jobs' },
     { id: 'community' as ActiveTab, label: 'Course Communities', icon: MessageSquare },
-    { id: 'users' as ActiveTab, label: 'User Directory & Roles', icon: Users, badge: 'Admin' },
     { id: 'social' as ActiveTab, label: 'Personal & Sports', icon: HeartHandshake },
+  ];
+
+  const toolsAdminItems = [
+    { id: 'alerts' as ActiveTab, label: 'Alert Preferences', icon: BellRing, badge: 'Sound' },
+    { id: 'users' as ActiveTab, label: 'User Directory & Roles', icon: Shield, badge: 'Admin' },
     { id: 'share' as ActiveTab, label: 'Share Timetable', icon: Share2 },
     { id: 'payments' as ActiveTab, label: 'University Payments', icon: CreditCard },
     { id: 'architecture' as ActiveTab, label: 'Architecture & System', icon: Server, badge: 'Cloud' },
     { id: 'settings' as ActiveTab, label: 'Settings', icon: Settings },
   ];
 
+  const allNavItems = [...academicHubItems, ...campusLifeItems, ...toolsAdminItems];
+
   // Mobile Bottom Bar items
   const bottomBarItems = [
     { id: 'dashboard' as ActiveTab, label: 'Home', icon: LayoutDashboard },
     { id: 'timetable' as ActiveTab, label: 'Timetable', icon: Clock },
-    { id: 'study' as ActiveTab, label: 'Feeds', icon: Sparkles },
-    { id: 'community' as ActiveTab, label: 'Chat', icon: MessageSquare },
+    { id: 'attendance' as ActiveTab, label: 'QR Scan', icon: QrCode },
+    { id: 'materials' as ActiveTab, label: 'Materials', icon: FolderDown },
     { id: 'tasks' as ActiveTab, label: 'Tasks', icon: CheckSquare },
   ];
 
@@ -189,7 +190,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             <button
               id="header-university-picker-btn"
               onClick={onOpenUniversityPicker}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-xs text-white transition-colors max-w-[140px] sm:max-w-[220px] truncate shrink"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-xs text-white transition-colors max-w-[130px] sm:max-w-[200px] truncate shrink"
               title="Click to switch or add any university"
             >
               <Building className="w-3.5 h-3.5 text-amber-300 shrink-0" />
@@ -199,20 +200,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Top Quick Actions & Status */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Academic Timezone & EAT Campus Clock */}
-            <button
-              id="header-timezone-btn"
-              onClick={onOpenTimezoneSettings}
-              title="Campus Time System: Click to view or adjust East Africa Time (EAT) / Local detection"
-              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-800 text-sky-200 text-xs font-bold transition-all active:scale-95 shadow-2xs"
-            >
-              <Clock className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-              <span className="font-mono text-[11px] sm:text-xs">{timeDisplay.primary}</span>
-              <span className="hidden xl:inline text-[10px] px-1 rounded bg-sky-800 text-sky-100 font-sans font-semibold">
-                {timeDisplay.badge}
-              </span>
-            </button>
-
             {/* Offline simulation toggle */}
             <button
               id="network-status-toggle-btn"
@@ -313,14 +300,14 @@ export const Navigation: React.FC<NavigationProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-8">
         <div className="lg:grid lg:grid-cols-[280px_1fr] gap-6 items-start">
           {/* Desktop Left Sidebar: Navigation & Announcements Bar */}
-          <aside className="hidden lg:block sticky top-20 space-y-4">
+          <aside className="hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
             {/* Primary Campus Hub Navigation */}
             <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs">
               <div className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                Campus Hub
+                Academic Hub
               </div>
-              <nav className="space-y-1">
-                {navItems.slice(0, 8).map((item) => {
+              <nav className="space-y-0.5">
+                {academicHubItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
                   return (
@@ -349,10 +336,42 @@ export const Navigation: React.FC<NavigationProps> = ({
               </nav>
 
               <div className="px-3 pt-3 pb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                Tools & Administration
+                Campus Life & Community
               </div>
-              <nav className="space-y-1">
-                {navItems.slice(8).map((item) => {
+              <nav className="space-y-0.5">
+                {campusLifeItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      id={`sidebar-nav-${item.id}`}
+                      onClick={() => handleNavClick(item.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-left ${
+                        isActive
+                          ? 'bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-700' : 'text-slate-500'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded">
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              <div className="px-3 pt-3 pb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                Tools & Settings
+              </div>
+              <nav className="space-y-0.5">
+                {toolsAdminItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
                   return (
@@ -448,25 +467,8 @@ export const Navigation: React.FC<NavigationProps> = ({
                     </div>
                   </div>
 
-                  {/* Timezone in mobile menu */}
-                  <div 
-                    onClick={() => { setMobileMenuOpen(false); if (onOpenTimezoneSettings) onOpenTimezoneSettings(); }}
-                    className="mt-2 p-3 bg-sky-50 rounded-xl border border-sky-200 cursor-pointer hover:bg-sky-100/70 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-bold text-sky-900 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-sky-700" />
-                        Campus Time (EAT)
-                      </span>
-                      <span className="text-[10px] font-bold text-sky-800">Adjust</span>
-                    </div>
-                    <div className="text-xs font-black text-slate-900 mt-1 font-mono">
-                      {timeDisplay.primary}
-                    </div>
-                  </div>
-
                   <nav className="mt-3 space-y-1">
-                    {navItems.map((item) => {
+                    {allNavItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activeTab === item.id;
                       return (

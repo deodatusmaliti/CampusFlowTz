@@ -6,7 +6,8 @@ interface TimezoneSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onModeChanged?: (newMode: TimezoneMode) => void;
-  onNotify: (msg: string) => void;
+  onNotify?: (msg: string) => void;
+  onSaved?: (mode: TimezoneMode) => void;
 }
 
 export const TimezoneSettingsModal: React.FC<TimezoneSettingsModalProps> = ({
@@ -14,6 +15,7 @@ export const TimezoneSettingsModal: React.FC<TimezoneSettingsModalProps> = ({
   onClose,
   onModeChanged,
   onNotify,
+  onSaved,
 }) => {
   const [currentMode, setCurrentMode] = useState<TimezoneMode>(() => TimeService.getSavedMode());
   const [tzInfo, setTzInfo] = useState<TimezoneInfo>(() => TimeService.getTimezoneInfo());
@@ -56,13 +58,14 @@ export const TimezoneSettingsModal: React.FC<TimezoneSettingsModalProps> = ({
     setCurrentMode(mode);
     setTzInfo(TimeService.getTimezoneInfo());
     if (onModeChanged) onModeChanged(mode);
+    if (onSaved) onSaved(mode);
 
     if (mode === 'eat') {
-      onNotify('Time system set to East Africa Time (EAT: UTC+3).');
+      onNotify?.('Time system set to East Africa Time (EAT: UTC+3).');
     } else if (mode === 'auto') {
-      onNotify('Auto-detection enabled. Matches East African campus schedule automatically.');
+      onNotify?.('Auto-detection enabled. Matches East African campus schedule automatically.');
     } else {
-      onNotify('Time system switched to your local device timezone.');
+      onNotify?.('Time system switched to your local device timezone.');
     }
   };
 
