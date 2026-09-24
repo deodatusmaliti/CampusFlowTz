@@ -447,9 +447,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Visualizations Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 min-w-0">
         {/* GPA Trajectory Chart */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs min-w-0 overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-black text-slate-900">GPA Trajectory & Projections</h2>
@@ -457,12 +457,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <button
               onClick={() => onNavigate('gpa')}
-              className="text-xs font-bold text-sky-800 hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-sky-800 hover:underline flex items-center gap-1 shrink-0"
             >
               Simulate <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          <div className="h-60 w-full">
+          <div className="h-60 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={gpaTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -485,7 +485,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Course Performance Breakdown Chart */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs min-w-0 overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-black text-slate-900">Course Marks & Attendance (%)</h2>
@@ -493,12 +493,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <button
               onClick={() => onNavigate('courses')}
-              className="text-xs font-bold text-sky-800 hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-sky-800 hover:underline flex items-center gap-1 shrink-0"
             >
               All Courses <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          <div className="h-60 w-full">
+          <div className="h-60 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={coursePerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

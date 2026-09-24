@@ -549,7 +549,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           )}
 
           {/* Children View Content Area */}
-          <main className="min-w-0">
+          <main className="min-w-0 pb-24 lg:pb-6">
             {children}
           </main>
         </div>
