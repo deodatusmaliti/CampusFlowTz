@@ -41,11 +41,14 @@ import { StudyMaterial, StudyMaterialType, User, Course } from '../types';
 import { StorageService } from '../services/storageService';
 import { MaterialFileService } from '../services/materialFileService';
 import { EndorsementButton } from './EndorsementButton';
+import { buildMaterialShareUrl, printStudyMaterial } from '../utils/shareUtils';
 
 interface StudyMaterialsViewProps {
   user: User;
   courses: Course[];
   onNotify: (msg: string) => void;
+  targetMaterialId?: string | null;
+  onClearTargetMaterialId?: () => void;
 }
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.zip', '.txt'];
@@ -55,6 +58,8 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
   user,
   courses,
   onNotify,
+  targetMaterialId,
+  onClearTargetMaterialId,
 }) => {
   const [materials, setMaterials] = useState<StudyMaterial[]>(() => StorageService.getStudyMaterials());
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,6 +110,40 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
     setPreviewTextContent(null);
     setPreviewMaterial(null);
   };
+
+  // Deep-link auto-preview & scroll effect
+  React.useEffect(() => {
+    if (!targetMaterialId) return;
+
+    const matched = materials.find(m => m.id === targetMaterialId || m.id === `mat_${targetMaterialId}`);
+    if (matched) {
+      setSelectedCourse('ALL');
+      setSelectedType('ALL');
+      setSelectedYear('ALL');
+      setSearchQuery('');
+      setFilterBookmarkedOnly(false);
+
+      // Immediately open full reader preview
+      openPreview(matched);
+
+      // Scroll into view & pulse ring
+      setTimeout(() => {
+        const el = document.getElementById(`material-card-${matched.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-4', 'ring-sky-500', 'ring-offset-2');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-sky-500', 'ring-offset-2');
+          }, 4500);
+        }
+      }, 400);
+
+      onNotify(`Loaded shared study resource: "${matched.title}"`);
+      if (onClearTargetMaterialId) {
+        onClearTargetMaterialId();
+      }
+    }
+  }, [targetMaterialId, materials]);
 
   // Upload modal state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -207,79 +246,69 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
     }
   };
 
-  // Real Print material
+  // Real Print material using seamless invisible iframe print engine
   const handlePrintMaterial = async (item: StudyMaterial) => {
-    if (['docx', 'pptx', 'xlsx', 'zip'].includes(item.fileType)) {
-      if (window.confirm(`Office documents (.${item.fileType}) cannot be printed directly by browser layout engines. Would you like to download "${item.fileName}" to print via your office suite?`)) {
-        await handleDownload(item);
-      }
-      return;
-    }
-
     try {
-      const blob = await MaterialFileService.getMaterialBlob(item);
-      if (item.fileType === 'pdf') {
-        const blobUrl = URL.createObjectURL(blob);
-        const win = window.open(blobUrl, '_blank');
-        if (win) {
-          win.focus();
-        }
-        onNotify(`Opened authentic PDF document for printing: "${item.fileName}".`);
-      } else if (item.fileType === 'image') {
-        const blobUrl = URL.createObjectURL(blob);
-        const win = window.open('', '_blank');
-        if (win) {
-          win.document.write(`<!DOCTYPE html><html><head><title>Print ${item.title}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="${blobUrl}" style="max-width:100%;max-height:100vh;" onload="window.print()" /></body></html>`);
-          win.document.close();
-        }
-        onNotify(`Opened diagram print view for "${item.fileName}".`);
+      onNotify(`Preparing print layout for "${item.title}"...`);
+      let textContent: string | null = null;
+      let blobUrl: string | null = null;
+
+      if (previewMaterial?.id === item.id) {
+        textContent = previewTextContent;
+        blobUrl = previewBlobUrl;
       } else {
-        const text = await blob.text();
-        const win = window.open('', '_blank');
-        if (win) {
-          win.document.write(`<!DOCTYPE html><html><head><title>Print ${item.title}</title><style>body{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;padding:36px;line-height:1.6;color:#0f172a;}</style></head><body>${text.replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c] || c))}</body></html>`);
-          win.document.close();
-          win.focus();
-          win.print();
+        const blob = await MaterialFileService.getMaterialBlob(item);
+        if (item.fileType === 'txt') {
+          textContent = await blob.text();
+        } else if (item.fileType === 'image') {
+          blobUrl = URL.createObjectURL(blob);
         }
-        onNotify(`Print layout opened for "${item.fileName}".`);
       }
+
+      await printStudyMaterial(item, textContent, blobUrl);
+      onNotify(`Print layout opened for "${item.title}".`);
     } catch (err) {
-      console.error(err);
-      onNotify(`Print action error for "${item.fileName}".`);
+      console.error('Print execution failed:', err);
+      window.print();
     }
   };
 
-  // Share via WhatsApp with actual link
+  // Share via WhatsApp with direct deep-link to the exact material
   const handleShareWhatsApp = (item: StudyMaterial) => {
-    const link = item.sourceLink && item.sourceLink.startsWith('http') 
-      ? item.sourceLink 
-      : `${window.location.origin}/#/materials?id=${item.id}`;
-    const text = `📘 *CampusFlow TZ Study Material*\n*${item.title}*\nCourse: ${item.courseCode} - ${item.courseTitle}\nInstitution: ${item.institution || 'University of Dar es Salaam'}\nUploaded by: ${item.uploadedBy}\nFile: ${item.fileName} (${item.fileSize})\nLink: ${link}`;
+    const directLink = buildMaterialShareUrl(item.id);
+    const text = `📘 *CampusFlow TZ Study Resource*\n*${item.title}*\n\n📖 Course: ${item.courseCode} - ${item.courseTitle}\n🏛️ Institution: ${item.institution || 'University of Dar es Salaam'}\n👤 Uploaded by: ${item.uploadedBy}\n📁 File: ${item.fileName} (${item.fileSize})\n\n🔗 *Open this exact material directly:*\n${directLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    onNotify(`Prepared WhatsApp message for "${item.title}".`);
+    onNotify(`Prepared WhatsApp direct link for "${item.title}".`);
   };
 
-  // Share via Email with actual link
+  // Share via Email with direct deep-link
   const handleShareEmail = (item: StudyMaterial) => {
-    const link = item.sourceLink && item.sourceLink.startsWith('http') 
-      ? item.sourceLink 
-      : `${window.location.origin}/#/materials?id=${item.id}`;
+    const directLink = buildMaterialShareUrl(item.id);
     const subject = `Study Resource: ${item.title} (${item.courseCode})`;
-    const body = `Hello,\n\nSharing this study resource from CampusFlow TZ:\n\nTitle: ${item.title}\nCourse: ${item.courseCode} - ${item.courseTitle}\nInstitution: ${item.institution || 'University of Dar es Salaam'}\nUploaded by: ${item.uploadedBy}\nFile: ${item.fileName} (${item.fileSize})\nDirect Link: ${link}\n\nDescription:\n${item.description}\n`;
+    const body = `Hello,\n\nSharing this study resource from CampusFlow TZ:\n\nTitle: ${item.title}\nCourse: ${item.courseCode} - ${item.courseTitle}\nInstitution: ${item.institution || 'University of Dar es Salaam'}\nUploaded by: ${item.uploadedBy}\nFile: ${item.fileName} (${item.fileSize})\n\n🔗 Direct Link to view and download:\n${directLink}\n\nDescription:\n${item.description}\n`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     onNotify(`Prepared email draft for "${item.title}".`);
   };
 
-  // Copy shareable link
-  const handleCopyLink = (item: StudyMaterial) => {
-    const shareableUrl = item.sourceLink && item.sourceLink.startsWith('http') 
-      ? item.sourceLink 
-      : `${window.location.origin}/#/materials?id=${item.id}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(shareableUrl);
+  // Copy shareable direct deep-link
+  const handleCopyLink = async (item: StudyMaterial) => {
+    const directLink = buildMaterialShareUrl(item.id);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(directLink);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = directLink;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      onNotify(`Direct link copied! Clicking it opens "${item.title}" directly in the browser.`);
+    } catch (err) {
+      console.error('Clipboard copy failed:', err);
+      onNotify(`Direct Link: ${directLink}`);
     }
-    onNotify(`Shareable link for "${item.title}" copied to clipboard!`);
     setActiveShareId(null);
   };
 
@@ -560,6 +589,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
           {filteredMaterials.map((item) => (
             <div
               key={item.id}
+              id={`material-card-${item.id}`}
               className="bg-white rounded-2xl border border-slate-200 hover:border-sky-300 transition-all shadow-2xs hover:shadow-md p-4 flex flex-col justify-between group relative"
             >
               {/* Card Header & Badges */}

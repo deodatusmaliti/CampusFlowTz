@@ -66,10 +66,49 @@ import { FeedInfoModal } from './components/FeedInfoModal';
 import { AIService } from './services/aiService';
 import { ImminentLectureAlert } from './types';
 import { soundAlerts } from './services/soundAlertService';
+import { parseIncomingRoute } from './utils/shareUtils';
 
 export default function App() {
-  // Navigation & Modals
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  // Deep routing & Navigation
+  const initialRoute = parseIncomingRoute();
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => initialRoute.tab || 'dashboard');
+  const [targetMaterialId, setTargetMaterialId] = useState<string | null>(() => initialRoute.materialId || null);
+
+  // Synchronize URL changes (browser back/forward, deep-link navigation)
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const route = parseIncomingRoute();
+      if (route.tab && route.tab !== activeTab) {
+        setActiveTab(route.tab);
+      }
+      if (route.materialId) {
+        setTargetMaterialId(route.materialId);
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, [activeTab]);
+
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      if (tab !== 'materials') {
+        url.searchParams.delete('materialId');
+        url.searchParams.delete('id');
+      }
+      window.history.replaceState(null, '', url.toString());
+    } catch {
+      // safe fallback
+    }
+  };
+
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [addEventInitialDate, setAddEventInitialDate] = useState<string | undefined>(undefined);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
@@ -746,7 +785,7 @@ export default function App() {
       {/* Top Navbar & Integrated Desktop Sidebar Layout */}
       <Navigation
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         currentUser={currentUser}
         onOpenAddEvent={() => {
           setAddEventInitialDate(undefined);
@@ -777,7 +816,7 @@ export default function App() {
             announcements={announcements}
             breakthroughs={breakthroughs}
             onNavigate={(tab) => {
-              setActiveTab(tab);
+              handleTabChange(tab);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenAddEvent={() => {
@@ -865,6 +904,8 @@ export default function App() {
             user={currentUser}
             courses={courses}
             onNotify={showToast}
+            targetMaterialId={targetMaterialId}
+            onClearTargetMaterialId={() => setTargetMaterialId(null)}
           />
         )}
 
