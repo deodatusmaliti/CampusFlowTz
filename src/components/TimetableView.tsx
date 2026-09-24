@@ -20,7 +20,8 @@ import {
   Layers,
   BookOpen,
   GraduationCap,
-  ArrowRight
+  ArrowRight,
+  Printer
 } from 'lucide-react';
 import { DayOfWeek, TimetableSlot, User, CalendarEvent, Course } from '../types';
 import { TimeService } from '../services/timeService';
@@ -203,6 +204,69 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     onNotify?.('Timetable exported in iCalendar (.ics) format.');
   };
 
+  // Print Timetable Schedule
+  const handlePrintTimetable = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Academic Timetable - ${user.university}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+              h1 { font-size: 22px; font-weight: 900; margin: 0 0 4px 0; color: #0369a1; }
+              .sub { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+              th { background: #f1f5f9; font-weight: 800; }
+              tr:nth-child(even) { background: #f8fafc; }
+              .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; background: #e0f2fe; color: #0369a1; }
+              .footer { margin-top: 30px; font-size: 11px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <h1>${user.university} • Official Academic Schedule</h1>
+            <div class="sub">Student: ${user.name} (${user.programme}, Year ${user.currentYear}) • Semester Timetable</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Time</th>
+                  <th>Course Code</th>
+                  <th>Course Title</th>
+                  <th>Type</th>
+                  <th>Venue / Hall</th>
+                  <th>Lecturer</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredSlots.map(s => `
+                  <tr>
+                    <td><strong>${s.day}</strong></td>
+                    <td>${s.startTime} – ${s.endTime}</td>
+                    <td><span class="badge">${s.courseCode}</span></td>
+                    <td>${s.courseName || s.title}</td>
+                    <td>${s.type}</td>
+                    <td>${s.hall || s.venue || 'TBA'}</td>
+                    <td>${s.lecturer}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">Printed from CampusFlow TZ • Printed on ${new Date().toLocaleDateString()}</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify?.('Timetable print layout generated.');
+    } else {
+      window.print();
+    }
+  };
+
   const handleSaveTimetableEntry = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -309,6 +373,15 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
           </button>
 
           <div className="flex items-center rounded-xl bg-slate-100 border border-slate-200 overflow-hidden">
+            <button
+              onClick={handlePrintTimetable}
+              className="px-3 py-2 text-slate-700 hover:bg-slate-200 text-xs font-bold transition-colors flex items-center gap-1.5"
+              title="Print academic timetable"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-600" />
+              <span>Print</span>
+            </button>
+            <span className="text-slate-300">|</span>
             <button
               id="btn-export-timetable"
               onClick={handleExportCSV}

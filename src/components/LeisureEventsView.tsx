@@ -21,7 +21,11 @@ import {
   Music,
   Activity,
   X,
-  AlertCircle
+  AlertCircle,
+  Printer,
+  MessageSquare,
+  Mail,
+  Copy
 } from 'lucide-react';
 import { LeisureEvent, LeisureCategory, User, CalendarEvent } from '../types';
 import { StorageService } from '../services/storageService';
@@ -101,6 +105,86 @@ export const LeisureEventsView: React.FC<LeisureEventsViewProps> = ({
       reminderMinutes: 30,
     });
     onNotify(`"${evt.title}" added to your personal timetable.`);
+  };
+
+  const handleShareWhatsApp = (evt: LeisureEvent) => {
+    const text = `🎉 *Campus Event on CampusFlow TZ*\n*${evt.title}*\nDate: ${evt.date} (${evt.startTime} - ${evt.endTime})\nVenue: ${evt.venue}\nOrganizer: ${evt.organizer}\nAdmission: ${evt.admissionFee}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    onNotify(`Sharing "${evt.title}" via WhatsApp...`);
+  };
+
+  const handleShareEmail = (evt: LeisureEvent) => {
+    const subject = `Campus Event: ${evt.title}`;
+    const body = `Hello,\n\nCampus leisure event on CampusFlow TZ:\n\nTitle: ${evt.title}\nDate: ${evt.date} (${evt.startTime} - ${evt.endTime})\nVenue: ${evt.venue}\nOrganizer: ${evt.organizer}\nAdmission: ${evt.admissionFee}\n\nDescription:\n${evt.description}\n`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onNotify(`Opening email client to share "${evt.title}"...`);
+  };
+
+  const handleCopyEvent = (evt: LeisureEvent) => {
+    const text = `${evt.title} | ${evt.date} ${evt.startTime}-${evt.endTime} | Venue: ${evt.venue} | Fee: ${evt.admissionFee}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    }
+    onNotify(`Copied event details for "${evt.title}".`);
+  };
+
+  const handlePrintEvents = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>CampusFlow TZ - Campus Leisure & Social Events</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+              h1 { font-size: 22px; font-weight: 900; margin: 0 0 6px 0; color: #db2777; }
+              .sub { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+              th { background: #fdf2f8; font-weight: 800; color: #831843; }
+              tr:nth-child(even) { background: #f8fafc; }
+              .footer { margin-top: 30px; font-size: 11px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <h1>Campus Student Life & Leisure Events</h1>
+            <div class="sub">Generated from CampusFlow TZ • Printed on ${new Date().toLocaleDateString()}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Event Title</th>
+                  <th>Date & Time</th>
+                  <th>Venue</th>
+                  <th>Organizer</th>
+                  <th>Admission</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredEvents.map(e => `
+                  <tr>
+                    <td><strong>${e.category.toUpperCase()}</strong></td>
+                    <td><strong>${e.title}</strong></td>
+                    <td>${e.date} (${e.startTime} - ${e.endTime})</td>
+                    <td>${e.venue}</td>
+                    <td>${e.organizer}</td>
+                    <td>${e.admissionFee}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">Printed from CampusFlow TZ • Student Life Directory</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify('Leisure events print layout generated.');
+    } else {
+      window.print();
+    }
   };
 
   const handleCreateEvent = (e: React.FormEvent) => {
@@ -190,13 +274,24 @@ export const LeisureEventsView: React.FC<LeisureEventsViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => { setModalError(null); setIsModalOpen(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 active:scale-98 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Post Campus Event</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handlePrintEvents}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-colors"
+            title="Print campus leisure events list"
+          >
+            <Printer className="w-4 h-4 text-slate-600" />
+            <span>Print Events</span>
+          </button>
+
+          <button
+            onClick={() => { setModalError(null); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 active:scale-98 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Post Campus Event</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -352,6 +447,34 @@ export const LeisureEventsView: React.FC<LeisureEventsViewProps> = ({
                       <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${isInterested ? 'bg-amber-700' : 'bg-slate-200'}`}>
                         {(evt.rsvpInterested || []).length}
                       </span>
+                    </button>
+                  </div>
+
+                  {/* Share actions */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => handleShareWhatsApp(evt)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1 text-emerald-700 hover:bg-emerald-50 rounded-lg text-xs font-semibold"
+                      title="Share on WhatsApp"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleShareEmail(evt)}
+                      className="p-1 text-sky-700 hover:bg-sky-50 rounded-lg"
+                      title="Share via Email"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleCopyEvent(evt)}
+                      className="p-1 text-slate-600 hover:bg-slate-100 rounded-lg"
+                      title="Copy event details"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>

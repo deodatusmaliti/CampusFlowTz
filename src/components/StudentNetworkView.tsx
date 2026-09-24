@@ -23,7 +23,9 @@ import {
   Share2,
   Calendar,
   Layers,
-  Info
+  Info,
+  Copy,
+  Printer
 } from 'lucide-react';
 import { 
   StudentNetworkProfile, 
@@ -273,6 +275,86 @@ export const StudentNetworkView: React.FC<StudentNetworkViewProps> = ({
     onNotify(`Sharing invite for "${group.name}" via WhatsApp...`);
   };
 
+  // Copy Group Link
+  const handleCopyGroupLink = (group: StudyGroup) => {
+    const link = `${window.location.origin}/#/network?pod=${group.id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link);
+    }
+    onNotify(`Invitation link for "${group.name}" copied to clipboard!`);
+  };
+
+  // Share Group via Email
+  const handleShareGroupEmail = (group: StudyGroup) => {
+    const subject = `Study Pod Invitation: ${group.name} (${group.courseCode})`;
+    const body = `Hello,\n\nYou are invited to join our academic study pod on CampusFlow TZ:\n\nPod: ${group.name}\nCourse: ${group.courseCode}\nFormat: ${group.meetingType}\nMembers: ${group.currentMembers}/${group.maxMembers}\n\nDescription:\n${group.description}\n\nJoin link: ${window.location.origin}/#/network?pod=${group.id}\n`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onNotify(`Opening email client to share "${group.name}"...`);
+  };
+
+  // Print Group Schedule
+  const handlePrintGroupSchedule = (group: StudyGroup) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Study Pod: ${group.name}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.6; }
+              .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; background: #e0f2fe; color: #0369a1; text-transform: uppercase; }
+              h1 { font-size: 24px; font-weight: 900; margin: 10px 0 6px 0; }
+              .meta { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+              .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+              th { background: #f1f5f9; }
+              .footer { margin-top: 30px; font-size: 11px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <span class="badge">${group.courseCode}</span>
+            <h1>${group.name}</h1>
+            <div class="meta">Created by ${group.creatorName} • Format: ${group.meetingType}</div>
+            <div class="box">
+              <strong>Pod Objective:</strong>
+              <p>${group.description}</p>
+            </div>
+            <h3>Enrolled Pod Members (${group.members.length} / ${group.maxMembers}):</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Member Name</th>
+                  <th>Role</th>
+                  <th>Programme</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${group.members.map((m, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td><strong>${m.name}</strong></td>
+                    <td>${m.role}</td>
+                    <td>${m.programme || 'Undergraduate'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">Printed from CampusFlow TZ Academic Study Network • ${new Date().toLocaleDateString()}</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify(`Print layout opened for "${group.name}".`);
+    } else {
+      window.print();
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Top Banner */}
@@ -450,13 +532,40 @@ export const StudentNetworkView: React.FC<StudentNetworkViewProps> = ({
                     </button>
                   </div>
 
-                  <button
-                    onClick={() => handleShareGroupWhatsApp(group)}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 text-emerald-700 hover:bg-emerald-50 rounded-xl text-xs font-semibold transition-colors"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Share Pod on WhatsApp</span>
-                  </button>
+                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => handleShareGroupWhatsApp(group)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 text-emerald-700 hover:bg-emerald-50 rounded-xl text-xs font-semibold transition-colors"
+                      title="Share Pod on WhatsApp"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>WhatsApp</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleShareGroupEmail(group)}
+                      className="p-1.5 text-sky-700 hover:bg-sky-50 rounded-xl transition-colors"
+                      title="Share Pod via Email"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleCopyGroupLink(group)}
+                      className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                      title="Copy invite link"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handlePrintGroupSchedule(group)}
+                      className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                      title="Print Pod Member Roster & Schedule"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

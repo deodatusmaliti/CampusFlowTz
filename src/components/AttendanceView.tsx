@@ -19,7 +19,11 @@ import {
   Minimize2, 
   X,
   Upload,
-  ArrowRight
+  ArrowRight,
+  Printer,
+  RotateCcw,
+  Eye,
+  FileText
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -79,6 +83,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
   // Fullscreen projection mode for lecturer
   const [isFullscreenQR, setIsFullscreenQR] = useState(false);
+  // Print preview modal state
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   // Filter state for records
   const [recordFilterCourse, setRecordFilterCourse] = useState<string>('ALL');
@@ -86,13 +92,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   // Canvas ref for generating QR code image
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fullscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const printPosterCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Generate QR code on canvas whenever selectedSession changes
   useEffect(() => {
     if (!selectedSession) return;
+    const webAttendanceUrl = `${window.location.origin}${window.location.pathname}#/attendance?session=${encodeURIComponent(selectedSession.id)}&token=${encodeURIComponent(selectedSession.verificationToken)}&code=${encodeURIComponent(selectedSession.courseCode)}`;
     const payload = JSON.stringify({
+      url: webAttendanceUrl,
+      session: selectedSession.id,
       token: selectedSession.verificationToken,
       code: selectedSession.courseCode,
       title: selectedSession.courseTitle,
@@ -123,7 +133,18 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
         },
       }).catch(err => console.error('Error drawing Fullscreen QR:', err));
     }
-  }, [selectedSession, isFullscreenQR]);
+
+    if (printPosterCanvasRef.current && isPrintPreviewOpen) {
+      QRCode.toCanvas(printPosterCanvasRef.current, payload, {
+        width: 280,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff',
+        },
+      }).catch(err => console.error('Error drawing Print Poster QR:', err));
+    }
+  }, [selectedSession, isFullscreenQR, isPrintPreviewOpen]);
 
   // Clean up camera scanner on unmount or when scanner toggled off
   useEffect(() => {
@@ -229,12 +250,33 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
       try {
         payload = JSON.parse(scannedData);
       } catch {
-        // Plain string check (token or manual passcode)
+        // Plain string check (token or manual passcode or URL)
         payload = { raw: scannedData.trim() };
+      }
+
+      // Check if data contains attendance URL or query parameters
+      if (typeof scannedData === 'string' && (scannedData.includes('token=') || scannedData.includes('session='))) {
+        try {
+          const urlStr = scannedData.startsWith('http') ? scannedData : `http://dummy.app/${scannedData.replace(/^[/#?]+/, '')}`;
+          const parsed = new URL(urlStr);
+          const t = parsed.searchParams.get('token');
+          const s = parsed.searchParams.get('session');
+          const c = parsed.searchParams.get('code');
+          if (t || s || c) {
+            payload = {
+              ...payload,
+              token: t || payload?.token,
+              session: s || payload?.session,
+              code: c || payload?.code,
+              raw: t || s || payload?.raw
+            };
+          }
+        } catch {}
       }
 
       // Match against known sessions
       const matchedSession = qrSessions.find(s => {
+        if (payload.session && s.id === payload.session) return true;
         if (payload.token && s.verificationToken === payload.token) return true;
         if (payload.passcode && s.manualPasscode.toLowerCase() === payload.passcode.toLowerCase()) return true;
         if (payload.raw && (s.manualPasscode.toLowerCase() === payload.raw.toLowerCase() || s.verificationToken === payload.raw)) return true;
@@ -429,6 +471,273 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     onNotify('Attendance roster exported successfully.');
+  };
+
+  // Download QR Code as PNG
+  const handleDownloadQRPNG = () => {
+    if (!qrCanvasRef.current || !selectedSession) {
+      onNotify('Unable to export QR code.');
+      return;
+    }
+    const dataUrl = qrCanvasRef.current.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `CampusFlow_QR_${selectedSession.courseCode.replace(/\s+/g, '_')}_${selectedSession.manualPasscode}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    onNotify(`QR Code for ${selectedSession.courseCode} downloaded as PNG.`);
+  };
+
+  // Print Notice Board Poster for Lecturers
+  const handlePrintPoster = () => {
+    if (!selectedSession) return;
+    const printWindow = window.open('', '_blank');
+    const qrDataUrl = qrCanvasRef.current ? qrCanvasRef.current.toDataURL('image/png') : '';
+    
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Attendance Notice Board - ${selectedSession.courseCode}</title>
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 12mm;
+              }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+                color: #0f172a;
+                margin: 0;
+                padding: 16px;
+                background: #ffffff;
+              }
+              .poster {
+                border: 3px solid #0284c7;
+                border-radius: 18px;
+                padding: 24px;
+                text-align: center;
+                max-width: 640px;
+                margin: 0 auto;
+                box-sizing: border-box;
+              }
+              .header {
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 14px;
+                margin-bottom: 16px;
+              }
+              .institution {
+                font-size: 13px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 1.2px;
+                color: #0369a1;
+              }
+              .badge {
+                display: inline-block;
+                background: #0284c7;
+                color: #ffffff;
+                font-weight: 900;
+                font-size: 11px;
+                padding: 3px 12px;
+                border-radius: 20px;
+                margin-top: 6px;
+                text-transform: uppercase;
+              }
+              .course-code {
+                font-size: 40px;
+                font-weight: 900;
+                color: #0f172a;
+                margin: 6px 0 2px 0;
+                letter-spacing: -0.5px;
+              }
+              .course-title {
+                font-size: 20px;
+                font-weight: 700;
+                color: #334155;
+                margin-bottom: 12px;
+              }
+              .session-card {
+                background: #f8fafc;
+                border: 1px solid #cbd5e1;
+                border-radius: 12px;
+                padding: 12px 18px;
+                margin: 12px auto;
+                max-width: 500px;
+                font-size: 13px;
+                line-height: 1.6;
+              }
+              .qr-box {
+                margin: 16px 0;
+              }
+              .qr-img {
+                width: 260px;
+                height: 260px;
+                border: 4px solid #0f172a;
+                border-radius: 16px;
+                padding: 10px;
+                background: #ffffff;
+              }
+              .passcode-wrapper {
+                margin: 12px auto;
+                padding: 8px 24px;
+                background: #f0fdf4;
+                border: 2px dashed #16a34a;
+                border-radius: 12px;
+                display: inline-block;
+              }
+              .passcode-label {
+                font-size: 11px;
+                font-weight: 800;
+                color: #15803d;
+                text-transform: uppercase;
+              }
+              .passcode-val {
+                font-size: 28px;
+                font-weight: 900;
+                letter-spacing: 3px;
+                color: #166534;
+                font-family: monospace;
+              }
+              .instructions {
+                text-align: left;
+                background: #f1f5f9;
+                border-radius: 12px;
+                padding: 14px 20px;
+                margin: 16px auto;
+                max-width: 500px;
+                font-size: 12px;
+                color: #334155;
+              }
+              .instructions ol {
+                margin: 6px 0 0 18px;
+                padding: 0;
+              }
+              .instructions li {
+                margin-bottom: 4px;
+                font-weight: 500;
+              }
+              .footer {
+                margin-top: 14px;
+                font-size: 10px;
+                color: #64748b;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 8px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="poster">
+              <div class="header">
+                <div class="institution">CampusFlow TZ • Academic Directorate</div>
+                <div class="badge">Official Lecture Attendance Notice</div>
+              </div>
+              <div class="course-code">${selectedSession.courseCode}</div>
+              <div class="course-title">${selectedSession.courseTitle}</div>
+              <div class="session-card">
+                <div><strong>Lecturer:</strong> ${selectedSession.lecturerName}</div>
+                <div><strong>Lecture Topic:</strong> ${selectedSession.sessionTopic}</div>
+                <div><strong>Venue / Hall:</strong> ${selectedSession.hall} &nbsp;•&nbsp; <strong>Date:</strong> ${selectedSession.validDate}</div>
+              </div>
+              <div class="qr-box">
+                <img class="qr-img" src="${qrDataUrl}" alt="Session Attendance QR" />
+              </div>
+              <div class="passcode-wrapper">
+                <div class="passcode-label">Manual Passcode (If Scanner Offline)</div>
+                <div class="passcode-val">${selectedSession.manualPasscode}</div>
+              </div>
+              <div class="instructions">
+                <strong>Student Attendance Instructions:</strong>
+                <ol>
+                  <li>Open your smartphone camera or open CampusFlow TZ &gt; <strong>QR Attendance</strong>.</li>
+                  <li>Scan the QR code above or enter the 6-character manual passcode.</li>
+                  <li>Confirm your Student Registration Number to record attendance instantly.</li>
+                </ol>
+              </div>
+              <div class="footer">
+                Display this notice on the lecture hall door or whiteboard • Tampering or proxy verification is strictly prohibited under University Regulations.
+              </div>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        onNotify('Printed notice board attendance poster.');
+      }, 350);
+    } else {
+      window.print();
+      onNotify('Print dialog opened.');
+    }
+  };
+
+  // Reset Demo QR Sessions
+  const handleResetDemoSessions = () => {
+    const demoSessions: LecturerQRCodeSession[] = [
+      {
+        id: 'qr_sess_zoo',
+        courseCode: 'ZOO 101',
+        courseTitle: 'Zoology I',
+        lecturerName: 'Dr. A. Mushi',
+        sessionTopic: 'Phylum Arthropoda & East African Insect Vectors',
+        hall: 'Science Block B204',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
+        verificationToken: 'CF-TZ-ZOO101-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-1014',
+        attendanceCount: 48,
+      },
+      {
+        id: 'qr_sess_bst',
+        courseCode: 'BST 101',
+        courseTitle: 'Biostatistics I',
+        lecturerName: 'Dr. Neema Said',
+        sessionTopic: 'Hypothesis Testing & R Programming Lab Review',
+        hall: 'ICT Complex Lab 2',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
+        verificationToken: 'CF-TZ-BST101-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-1018',
+        attendanceCount: 39,
+      },
+      {
+        id: 'qr_sess_ana',
+        courseCode: 'ANA 101',
+        courseTitle: 'Human Anatomy I',
+        lecturerName: 'Dr. M. Mushi',
+        sessionTopic: 'Upper Limb Brachial Plexus & Axillary Dissection',
+        hall: 'Dissection Theatre A',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 120).toISOString(),
+        verificationToken: 'CF-TZ-ANA101-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-1016',
+        attendanceCount: 62,
+      },
+      {
+        id: 'qr_sess_phs',
+        courseCode: 'PHS 101',
+        courseTitle: 'Physiology I',
+        lecturerName: 'Dr. A. Massawe',
+        sessionTopic: 'Neuromuscular Junction & Membrane Excitability',
+        hall: 'Physiology Hall B',
+        validDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
+        verificationToken: 'CF-TZ-PHS101-LIVE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        allowManualCode: true,
+        manualPasscode: 'CF-1019',
+        attendanceCount: 54,
+      }
+    ];
+    StorageService.saveQRSessions(demoSessions);
+    setQrSessions(demoSessions);
+    setSelectedSession(demoSessions[0]);
+    onNotify('Demo QR Attendance sessions reloaded for curriculum courses.');
   };
 
   // Filtered records for table
@@ -806,13 +1115,33 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               </div>
 
               {selectedSession && (
-                <button
-                  onClick={() => setIsFullscreenQR(!isFullscreenQR)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  <span>Projector Fullscreen</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setIsPrintPreviewOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow-xs transition-colors"
+                    title="Generate and print printable notice board poster for lecture room"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print QR Code</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadQRPNG}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+                    title="Download QR code image as PNG"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PNG</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsFullscreenQR(!isFullscreenQR)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>Projector Fullscreen</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -870,24 +1199,45 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                 </div>
 
                 {/* Session Actions */}
-                <div className="flex items-center justify-between gap-3">
-                  <button
-                    onClick={() => {
-                      onNotify('Session QR code refreshed with updated security signature.');
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Rotate Token</span>
-                  </button>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsPrintPreviewOpen(true)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-900 text-xs font-bold transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Print Notice Board Poster</span>
+                    </button>
 
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black shadow-sm transition-all"
-                  >
-                    <Plus className="w-4 h-4 stroke-[2.5]" />
-                    <span>Create Another Session</span>
-                  </button>
+                    <button
+                      onClick={handleResetDemoSessions}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                      title="Load demo QR sessions for Zoology, Biostatistics, Anatomy, etc."
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reload Demo Sessions</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        onNotify('Session QR code refreshed with updated security signature.');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Rotate Token</span>
+                    </button>
+
+                    <button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black shadow-sm transition-all"
+                    >
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Create Another Session</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1093,6 +1443,127 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               <span>Hall: <strong className="text-white">{selectedSession.hall}</strong></span>
               <span>•</span>
               <span>Scanned Students: <strong className="text-amber-300 text-base">{selectedSession.attendanceCount}</strong></span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRINT NOTICE BOARD POSTER PREVIEW MODAL */}
+      {isPrintPreviewOpen && selectedSession && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Notice Board Print Preview</h3>
+                  <p className="text-xs text-slate-500">A4 & Notice Board clean layout for lecture room posting</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPrintPreviewOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Poster Sheet Preview Container */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div className="bg-white rounded-xl border-2 border-sky-600 p-6 text-center shadow-xs space-y-4">
+                {/* Official Header */}
+                <div className="border-b-2 border-slate-200 pb-3">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-sky-800 block">
+                    CampusFlow TZ • Official Academic Notice
+                  </span>
+                  <span className="inline-block mt-1 px-3 py-0.5 rounded-full bg-sky-700 text-white font-black text-[10px] uppercase tracking-wide">
+                    Lecture Attendance Verification Board
+                  </span>
+                </div>
+
+                {/* Course Details */}
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                    {selectedSession.courseCode}
+                  </h2>
+                  <h3 className="text-base font-bold text-slate-700">
+                    {selectedSession.courseTitle}
+                  </h3>
+                </div>
+
+                {/* Venue & Lecturer Info */}
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-700 space-y-1">
+                  <div><strong>Lecturer:</strong> {selectedSession.lecturerName}</div>
+                  <div><strong>Lecture Topic:</strong> {selectedSession.sessionTopic}</div>
+                  <div>
+                    <strong>Venue:</strong> {selectedSession.hall} &nbsp;•&nbsp; 
+                    <strong>Date:</strong> {selectedSession.validDate}
+                  </div>
+                </div>
+
+                {/* Center Sharp QR Code */}
+                <div className="flex flex-col items-center justify-center my-2">
+                  <div className="p-3 bg-white border-2 border-slate-900 rounded-2xl shadow-xs">
+                    <canvas ref={printPosterCanvasRef} className="rounded-lg"></canvas>
+                  </div>
+                </div>
+
+                {/* Manual Passcode */}
+                <div className="inline-block bg-emerald-50 border border-emerald-300 rounded-xl px-5 py-2">
+                  <div className="text-[10px] font-bold uppercase text-emerald-800">
+                    Manual 6-Digit Passcode
+                  </div>
+                  <div className="text-2xl font-black font-mono tracking-widest text-emerald-950">
+                    {selectedSession.manualPasscode}
+                  </div>
+                </div>
+
+                {/* Scanning instructions */}
+                <div className="text-left bg-sky-50/70 border border-sky-200 rounded-xl p-3.5 text-xs text-slate-700">
+                  <strong className="text-sky-950 block mb-1">Student Instructions:</strong>
+                  <ol className="list-decimal pl-4 space-y-0.5 text-[11px] text-slate-800 font-medium">
+                    <li>Open phone camera or CampusFlow TZ &gt; <strong>QR Attendance</strong>.</li>
+                    <li>Scan this QR code or type manual passcode <span className="font-mono font-bold text-sky-900">{selectedSession.manualPasscode}</span>.</li>
+                    <li>Verify your Student ID Number to lock in presence for TCU compliance.</li>
+                  </ol>
+                </div>
+
+                <div className="text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                  Notice for official lecture hall notice board. Duplicate scanning or proxy verification is strictly monitored.
+                </div>
+              </div>
+            </div>
+
+            {/* Print & Action Controls */}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleDownloadQRPNG}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download QR PNG</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPrintPreviewOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                >
+                  Close Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintPoster}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-black text-xs shadow-md transition-all"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Notice Board Poster</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

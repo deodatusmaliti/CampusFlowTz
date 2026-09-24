@@ -103,46 +103,55 @@ export const Navigation: React.FC<NavigationProps> = ({
   children,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [showMoreTools, setShowMoreTools] = React.useState(false);
 
-  const academicHubItems = [
-    { id: 'dashboard' as ActiveTab, label: 'Overview', icon: LayoutDashboard },
+  // Requirement 1: Primary Navigation ordering:
+  // - Dashboard
+  // - Academic Profile
+  // - Course Enrollment (immediately above Timetable)
+  // - Timetable
+  // - Study Materials
+  // - Assignments and Exams
+  // - Alerts and Reminders
+  // - Student Network and Study Groups
+  // - Leisure and Events
+  // - Opportunities
+  // - Settings
+  const primaryNavItems = [
+    { id: 'dashboard' as ActiveTab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'profile' as ActiveTab, label: 'Academic Profile', icon: UserIcon, badge: 'Student ID' },
+    { id: 'course-enrollment' as ActiveTab, label: 'Course Enrollment', icon: GraduationCap, badge: 'Enrol' },
     { id: 'timetable' as ActiveTab, label: 'Timetable', icon: Clock, badge: 'Live' },
+    { id: 'materials' as ActiveTab, label: 'Study Materials', icon: FolderDown, badge: 'PDFs' },
+    { id: 'tasks' as ActiveTab, label: 'Assignments and Exams', icon: CheckSquare, badge: 'Exams' },
+    { id: 'network' as ActiveTab, label: 'Student Network and Study Groups', icon: Users, badge: 'Pods' },
+    { id: 'leisure' as ActiveTab, label: 'Leisure and Events', icon: HeartHandshake, badge: 'Sports' },
+    { id: 'opportunities' as ActiveTab, label: 'Opportunities', icon: Briefcase, badge: 'Jobs' },
+    { id: 'settings' as ActiveTab, label: 'Settings', icon: Settings },
+  ];
+
+  const secondaryNavItems = [
     { id: 'attendance' as ActiveTab, label: 'QR Attendance', icon: QrCode, badge: 'Scanner' },
     { id: 'calendar' as ActiveTab, label: 'Academic Calendar', icon: CalendarDays },
     { id: 'courses' as ActiveTab, label: 'Courses & Syllabus', icon: BookOpen },
-    { id: 'course-enrollment' as ActiveTab, label: 'Course Enrollment', icon: GraduationCap, badge: 'Electives' },
-    { id: 'materials' as ActiveTab, label: 'Study Materials', icon: FolderDown, badge: 'PDFs' },
     { id: 'discussions' as ActiveTab, label: 'Discussion Calls', icon: Video, badge: 'Meet' },
     { id: 'study' as ActiveTab, label: 'Study & Feeds', icon: Sparkles, badge: 'Feeds' },
-    { id: 'tasks' as ActiveTab, label: 'Tasks & Deadlines', icon: CheckSquare },
     { id: 'gpa' as ActiveTab, label: 'GPA Projections', icon: TrendingUp },
-  ];
-
-  const campusLifeItems = [
-    { id: 'network' as ActiveTab, label: 'Student Network', icon: Users, badge: 'Pods' },
-    { id: 'leisure' as ActiveTab, label: 'Leisure & Events', icon: HeartHandshake, badge: 'Sports' },
-    { id: 'opportunities' as ActiveTab, label: 'Opportunities', icon: Briefcase, badge: 'Jobs' },
     { id: 'community' as ActiveTab, label: 'Course Communities', icon: MessageSquare },
     { id: 'social' as ActiveTab, label: 'Personal & Sports', icon: HeartHandshake },
-  ];
-
-  const toolsAdminItems = [
-    { id: 'alerts' as ActiveTab, label: 'Alert Preferences', icon: BellRing, badge: 'Sound' },
     { id: 'users' as ActiveTab, label: 'User Directory & Roles', icon: Shield, badge: 'Admin' },
     { id: 'share' as ActiveTab, label: 'Share Timetable', icon: Share2 },
     { id: 'payments' as ActiveTab, label: 'University Payments', icon: CreditCard },
     { id: 'architecture' as ActiveTab, label: 'Architecture & System', icon: Server, badge: 'Cloud' },
-    { id: 'settings' as ActiveTab, label: 'Settings', icon: Settings },
   ];
 
-  const allNavItems = [...academicHubItems, ...campusLifeItems, ...toolsAdminItems];
+  const allNavItems = [...primaryNavItems, ...secondaryNavItems];
 
-  // Mobile Bottom Bar items
+  // Mobile Bottom Bar items - Course Enrollment right beside Timetable for 1-tap thumb navigation
   const bottomBarItems = [
     { id: 'dashboard' as ActiveTab, label: 'Home', icon: LayoutDashboard },
+    { id: 'course-enrollment' as ActiveTab, label: 'Enroll', icon: GraduationCap },
     { id: 'timetable' as ActiveTab, label: 'Timetable', icon: Clock },
-    { id: 'attendance' as ActiveTab, label: 'QR Scan', icon: QrCode },
     { id: 'materials' as ActiveTab, label: 'Materials', icon: FolderDown },
     { id: 'tasks' as ActiveTab, label: 'Tasks', icon: CheckSquare },
   ];
@@ -303,11 +312,11 @@ export const Navigation: React.FC<NavigationProps> = ({
           <aside className="hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
             {/* Primary Campus Hub Navigation */}
             <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs">
-              <div className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                Academic Hub
+              <div className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-600">
+                Main Menu
               </div>
               <nav className="space-y-0.5">
-                {academicHubItems.map((item) => {
+                {primaryNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
                   return (
@@ -317,16 +326,20 @@ export const Navigation: React.FC<NavigationProps> = ({
                       onClick={() => handleNavClick(item.id)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-left ${
                         isActive
-                          ? 'bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs'
-                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                          ? 'bg-sky-100 text-sky-950 border border-sky-300 shadow-2xs font-extrabold'
+                          : 'text-slate-800 hover:bg-slate-100 hover:text-slate-950'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-700' : 'text-slate-500'}`} />
+                        <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-800' : 'text-slate-600'}`} />
                         <span>{item.label}</span>
                       </div>
                       {item.badge && (
-                        <span className="text-[10px] bg-sky-100 text-sky-900 font-extrabold px-1.5 py-0.5 rounded">
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                          item.id === 'course-enrollment' 
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : 'bg-slate-100 text-slate-800'
+                        }`}>
                           {item.badge}
                         </span>
                       )}
@@ -335,69 +348,46 @@ export const Navigation: React.FC<NavigationProps> = ({
                 })}
               </nav>
 
-              <div className="px-3 pt-3 pb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                Campus Life & Community
+              {/* Additional Campus Tools */}
+              <div className="pt-3 border-t border-slate-100 mt-2">
+                <button
+                  onClick={() => setShowMoreTools(!showMoreTools)}
+                  className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 transition-colors"
+                >
+                  <span>More University Tools</span>
+                  <span className="text-xs">{showMoreTools ? '▲' : '▼'}</span>
+                </button>
+                {showMoreTools && (
+                  <nav className="mt-1 space-y-0.5 animate-in fade-in duration-150">
+                    {secondaryNavItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          id={`sidebar-nav-${item.id}`}
+                          onClick={() => handleNavClick(item.id)}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-left ${
+                            isActive
+                              ? 'bg-sky-100 text-sky-950 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-sky-800' : 'text-slate-500'}`} />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span className="text-[9px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded font-bold">
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                )}
               </div>
-              <nav className="space-y-0.5">
-                {campusLifeItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      id={`sidebar-nav-${item.id}`}
-                      onClick={() => handleNavClick(item.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-left ${
-                        isActive
-                          ? 'bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs'
-                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-700' : 'text-slate-500'}`} />
-                        <span>{item.label}</span>
-                      </div>
-                      {item.badge && (
-                        <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded">
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-
-              <div className="px-3 pt-3 pb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                Tools & Settings
-              </div>
-              <nav className="space-y-0.5">
-                {toolsAdminItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      id={`sidebar-nav-${item.id}`}
-                      onClick={() => handleNavClick(item.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-left ${
-                        isActive
-                          ? 'bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs'
-                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-700' : 'text-slate-500'}`} />
-                        <span>{item.label}</span>
-                      </div>
-                      {item.badge && (
-                        <span className="text-[10px] bg-slate-200 text-slate-800 font-extrabold px-1.5 py-0.5 rounded">
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
             </div>
 
             {/* Left Announcements Bar */}
@@ -468,7 +458,10 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </div>
 
                   <nav className="mt-3 space-y-1">
-                    {allNavItems.map((item) => {
+                    <div className="px-2 py-1 text-[11px] font-black uppercase tracking-wider text-slate-700">
+                      Main Navigation
+                    </div>
+                    {primaryNavItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activeTab === item.id;
                       return (
@@ -476,24 +469,68 @@ export const Navigation: React.FC<NavigationProps> = ({
                           key={item.id}
                           id={`mobile-nav-${item.id}`}
                           onClick={() => handleNavClick(item.id)}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-left ${
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left ${
                             isActive
-                              ? 'bg-sky-100 text-sky-950 font-black'
-                              : 'text-slate-800 hover:bg-slate-100'
+                              ? 'bg-sky-100 text-sky-950 font-black border border-sky-300'
+                              : 'text-slate-850 hover:bg-slate-100 text-slate-900'
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-800' : 'text-slate-600'}`} />
+                            <Icon className={`w-4 h-4 stroke-[2.2] ${isActive ? 'text-sky-800' : 'text-slate-700'}`} />
                             <span>{item.label}</span>
                           </div>
                           {item.badge && (
-                            <span className="text-[10px] bg-slate-200 text-slate-900 font-black px-1.5 py-0.5 rounded">
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                              item.id === 'course-enrollment'
+                                ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+                                : 'bg-slate-200 text-slate-900'
+                            }`}>
                               {item.badge}
                             </span>
                           )}
                         </button>
                       );
                     })}
+
+                    <div className="pt-2">
+                      <button
+                        onClick={() => setShowMoreTools(!showMoreTools)}
+                        className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950"
+                      >
+                        <span>More University Tools</span>
+                        <span>{showMoreTools ? '▲' : '▼'}</span>
+                      </button>
+                      {showMoreTools && (
+                        <div className="mt-1 space-y-1 pl-1">
+                          {secondaryNavItems.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = activeTab === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                id={`mobile-nav-${item.id}`}
+                                onClick={() => handleNavClick(item.id)}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${
+                                  isActive
+                                    ? 'bg-sky-100 text-sky-950 font-black'
+                                    : 'text-slate-800 hover:bg-slate-100'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-sky-800' : 'text-slate-600'}`} />
+                                  <span>{item.label}</span>
+                                </div>
+                                {item.badge && (
+                                  <span className="text-[9px] bg-slate-200 text-slate-900 font-bold px-1.5 py-0.5 rounded">
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </nav>
                 </div>
 

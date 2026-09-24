@@ -25,8 +25,10 @@ import {
   AttendanceRecord,
   LecturerQRCodeSession,
   StudyGroup,
-  DirectConversation
+  DirectConversation,
+  InstitutionCreditConfig
 } from '../types';
+import { REAL_DEMO_MATERIALS } from './materialFileService';
 import { 
   INITIAL_USER, 
   INITIAL_COURSES, 
@@ -55,6 +57,7 @@ import {
   DEFAULT_ALERT_PREFERENCES,
   INITIAL_SYSTEM_ALERTS
 } from '../data/academicExtendedData';
+import { STANDARD_DEMO_COURSES } from '../data/demoCourses';
 import {
   INITIAL_STUDY_GROUPS,
   INITIAL_DIRECT_CONVERSATIONS
@@ -63,6 +66,7 @@ import {
 const KEYS = {
   USER: 'campusflow_user_v1',
   COURSES: 'campusflow_courses_v1',
+  MAX_CREDIT_LIMIT: 'campusflow_max_credit_limit_v1',
   EVENTS: 'campusflow_events_v1',
   TASKS: 'campusflow_tasks_v1',
   COMMUNITIES: 'campusflow_communities_v1',
@@ -92,6 +96,20 @@ const KEYS = {
   STUDY_GROUPS: 'campusflow_study_groups_v1',
   DIRECT_CONVERSATIONS: 'campusflow_direct_conversations_v1',
   GENERAL_SETTINGS: 'campusflow_general_settings_v1',
+  CREDIT_CONFIG: 'campusflow_institution_credit_config_v2',
+};
+
+const DEFAULT_CREDIT_CONFIG: InstitutionCreditConfig = {
+  institutionName: 'University of Dar es Salaam',
+  systemType: 'tanzania',
+  unitLabel: 'Credits',
+  normalMinCredits: 48,
+  recommendedCredits: 60,
+  normalMaxCredits: 72,
+  annualCredits: 120,
+  allowWarnings: false, // Optional; disabled by default!
+  practicalWeightingMultiplier: 1.0,
+  disclaimerAccepted: true,
 };
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -122,18 +140,28 @@ export const StorageService = {
     StorageService.enqueueSync('profile', 'update', `User profile updated: ${user.name}`);
   },
 
-  // Combined courses catalogue
+  // Combined courses catalogue & Enrollment
+  getMaxCreditLimit: (): number => {
+    return safeGet<number>(KEYS.MAX_CREDIT_LIMIT, 24);
+  },
+  saveMaxCreditLimit: (limit: number): void => {
+    safeSet(KEYS.MAX_CREDIT_LIMIT, limit);
+  },
   getCourses: (): Course[] => {
     const stored = safeGet<Course[]>(KEYS.COURSES, []);
     if (stored.length === 0) {
-      // Seed combined courses
-      const allSeed = [...INITIAL_COURSES, ...EXTENDED_DISCIPLINE_COURSES.filter(ec => !INITIAL_COURSES.some(c => c.code === ec.code))];
+      // Seed combined courses with priority to standard demo courses
+      const allSeed = [
+        ...STANDARD_DEMO_COURSES,
+        ...EXTENDED_DISCIPLINE_COURSES.filter(ec => !STANDARD_DEMO_COURSES.some(c => c.code === ec.code))
+      ];
       safeSet(KEYS.COURSES, allSeed);
       return allSeed;
     }
-    // If only 4 initial courses exist, auto-merge extended disciplines
-    if (stored.length <= 4) {
-      const merged = [...stored, ...EXTENDED_DISCIPLINE_COURSES.filter(ec => !stored.some(c => c.code === ec.code))];
+    // Ensure all 8 standard demo courses exist in storage
+    const missingDemos = STANDARD_DEMO_COURSES.filter(demo => !stored.some(s => s.code.toUpperCase() === demo.code.toUpperCase()));
+    if (missingDemos.length > 0) {
+      const merged = [...missingDemos, ...stored];
       safeSet(KEYS.COURSES, merged);
       return merged;
     }
@@ -143,6 +171,34 @@ export const StorageService = {
     safeSet(KEYS.COURSES, courses);
     StorageService.enqueueSync('course', 'update', `Course catalogue updated (${courses.length} courses)`);
   },
+  saveCourse: (course: Course): Course[] => {
+    const courses = StorageService.getCourses();
+    const idx = courses.findIndex(c => c.id === course.id || c.code.toUpperCase() === course.code.toUpperCase());
+    let updated: Course[];
+    if (idx >= 0) {
+      updated = [...courses];
+      updated[idx] = { ...courses[idx], ...course };
+    } else {
+      updated = [course, ...courses];
+    }
+    StorageService.saveCourses(updated);
+    return updated;
+  },
+  deleteCourse: (courseId: string): Course[] => {
+    const courses = StorageService.getCourses();
+    const updated = courses.filter(c => c.id !== courseId);
+    StorageService.saveCourses(updated);
+    return updated;
+  },
+  resetDemoCourses: (): Course[] => {
+    const fresh = [
+      ...STANDARD_DEMO_COURSES,
+      ...EXTENDED_DISCIPLINE_COURSES.filter(ec => !STANDARD_DEMO_COURSES.some(c => c.code === ec.code))
+    ];
+    safeSet(KEYS.COURSES, fresh);
+    StorageService.enqueueSync('course', 'update', 'Reset courses to standard curriculum demo dataset');
+    return fresh;
+  },
   enrollInCourse: (courseId: string): Course[] => {
     const courses = StorageService.getCourses();
     const updated = courses.map(c => {
@@ -150,6 +206,7 @@ export const StorageService = {
         return {
           ...c,
           enrollmentStatus: 'enrolled' as const,
+          status: 'active' as const,
           enrolledCount: (c.enrolledCount || 0) + 1
         };
       }
@@ -165,7 +222,23 @@ export const StorageService = {
         return {
           ...c,
           enrollmentStatus: 'available' as const,
+          status: 'withdrawn' as const,
           enrolledCount: Math.max(0, (c.enrolledCount || 1) - 1)
+        };
+      }
+      return c;
+    });
+    StorageService.saveCourses(updated);
+    return updated;
+  },
+  updateCourseStatus: (courseId: string, status: 'active' | 'completed' | 'withdrawn'): Course[] => {
+    const courses = StorageService.getCourses();
+    const updated = courses.map(c => {
+      if (c.id === courseId) {
+        return {
+          ...c,
+          status,
+          enrollmentStatus: status === 'withdrawn' ? ('available' as const) : ('enrolled' as const)
         };
       }
       return c;
@@ -358,9 +431,33 @@ export const StorageService = {
   // --------------------------------------------------------------------------
   // STUDY MATERIALS HUB
   // --------------------------------------------------------------------------
-  getStudyMaterials: (): StudyMaterial[] => safeGet(KEYS.STUDY_MATERIALS, INITIAL_STUDY_MATERIALS),
+  getStudyMaterials: (): StudyMaterial[] => {
+    const list = safeGet<StudyMaterial[]>(KEYS.STUDY_MATERIALS, []);
+    if (list.length === 0) {
+      // Seed with real demo materials first + extended academic initial data
+      const merged = [...REAL_DEMO_MATERIALS, ...INITIAL_STUDY_MATERIALS];
+      safeSet(KEYS.STUDY_MATERIALS, merged);
+      return merged;
+    }
+    // Ensure the real demo sample files are always accessible at top
+    const missingDemos = REAL_DEMO_MATERIALS.filter(demo => !list.some(m => m.id === demo.id));
+    if (missingDemos.length > 0) {
+      const combined = [...missingDemos, ...list];
+      safeSet(KEYS.STUDY_MATERIALS, combined);
+      return combined;
+    }
+    return list;
+  },
   saveStudyMaterials: (items: StudyMaterial[]): void => {
     safeSet(KEYS.STUDY_MATERIALS, items);
+  },
+
+  // --------------------------------------------------------------------------
+  // FLEXIBLE INSTITUTION COURSE-CREDIT SYSTEM
+  // --------------------------------------------------------------------------
+  getCreditConfig: (): InstitutionCreditConfig => safeGet(KEYS.CREDIT_CONFIG, DEFAULT_CREDIT_CONFIG),
+  saveCreditConfig: (config: InstitutionCreditConfig): void => {
+    safeSet(KEYS.CREDIT_CONFIG, config);
   },
   saveStudyMaterial: (item: StudyMaterial): StudyMaterial[] => {
     const list = StorageService.getStudyMaterials();
@@ -823,6 +920,12 @@ export const StorageService = {
   getGeneralSettings: () => {
     return safeGet(KEYS.GENERAL_SETTINGS, {
       lectureArrivalAlerts: true,
+      lectureLeadMinutes: 15,
+      examScheduleAlerts: true,
+      courseMaterialAlerts: true,
+      studyGroupAlerts: true,
+      opportunityAlerts: true,
+      personalEventAlerts: true,
       catDeadlineCountdown: true,
       gradeReleaseAlerts: true,
       emailWeeklyDigest: false,

@@ -23,7 +23,10 @@ import {
   RefreshCw,
   AlertTriangle,
   MessageSquare,
-  Copy
+  Copy,
+  Printer,
+  Mail,
+  Download
 } from 'lucide-react';
 import { OpportunityItem, OpportunityType, User } from '../types';
 import { StorageService } from '../services/storageService';
@@ -140,6 +143,123 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
     onNotify(`Sharing "${item.title}" via WhatsApp...`);
   };
 
+  const handleShareEmail = (item: OpportunityItem) => {
+    const subject = `Opportunity: ${item.title} (${item.organization})`;
+    const body = `Hello,\n\nCheck out this student/graduate opportunity from CampusFlow TZ:\n\nTitle: ${item.title}\nOrganization: ${item.organization}\nType: ${item.type}\nLocation: ${item.location}\nDeadline: ${item.deadline}\nStipend / Funding: ${item.fundingAmountOrStipend || 'Competitive'}\n\nDescription:\n${item.description}\n\nApply directly: ${item.applicationUrl}\n`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onNotify(`Opening email client to share "${item.title}"...`);
+  };
+
+  const handlePrintOpportunity = (item: OpportunityItem) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Opportunity: ${item.title}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.6; }
+              .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; background: #e0e7ff; color: #4338ca; }
+              h1 { font-size: 26px; font-weight: 900; margin: 12px 0 6px 0; color: #1e1b4b; }
+              .org { font-size: 16px; font-weight: 700; color: #475569; margin-bottom: 20px; }
+              .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 24px; font-size: 13px; }
+              .section-title { font-size: 16px; font-weight: 800; color: #1e293b; margin-top: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }
+              .desc { font-size: 14px; color: #334155; margin-top: 12px; }
+              .apply { margin-top: 30px; padding: 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; font-size: 13px; color: #065f46; font-weight: 600; }
+              .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <span class="badge">${item.type}</span>
+            <h1>${item.title}</h1>
+            <div class="org">${item.organization} • ${item.location}</div>
+            <div class="meta-grid">
+              <div><strong>Application Deadline:</strong> ${item.deadline}</div>
+              <div><strong>Funding / Stipend:</strong> ${item.fundingAmountOrStipend || 'Competitive compensation'}</div>
+              <div><strong>Field of Study:</strong> ${item.fieldOfStudy || 'All Academic Disciplines'}</div>
+              <div><strong>Official Application URL:</strong> ${item.applicationUrl}</div>
+            </div>
+            <div class="section-title">Opportunity Description & Requirements</div>
+            <div class="desc">${item.description}</div>
+            <div class="apply">
+              Direct Application Portal: ${item.applicationUrl}
+            </div>
+            <div class="footer">
+              Printed from CampusFlow TZ Career Portal • Date: ${new Date().toLocaleDateString()}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify(`Print layout opened for "${item.title}".`);
+    } else {
+      window.print();
+    }
+  };
+
+  const handlePrintCatalog = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>CampusFlow TZ - Verified Opportunities Catalog</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+              h1 { font-size: 24px; font-weight: 900; margin: 0 0 6px 0; }
+              .sub { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+              th { background: #f1f5f9; font-weight: 800; }
+              tr:nth-child(even) { background: #f8fafc; }
+              .badge { font-weight: 700; text-transform: uppercase; font-size: 10px; }
+              .footer { margin-top: 30px; font-size: 11px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <h1>CampusFlow TZ • Official Opportunities Catalog</h1>
+            <div class="sub">Verified Tanzanian scholarships, attachments, and graduate employment intakes. Printed ${new Date().toLocaleDateString()}</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Title</th>
+                  <th>Organization</th>
+                  <th>Location</th>
+                  <th>Deadline</th>
+                  <th>Stipend / Grant</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filtered.map(o => `
+                  <tr>
+                    <td><span class="badge">${o.type}</span></td>
+                    <td><strong>${o.title}</strong></td>
+                    <td>${o.organization}</td>
+                    <td>${o.location}</td>
+                    <td>${o.deadline}</td>
+                    <td>${o.fundingAmountOrStipend || 'Competitive'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">Printed from CampusFlow TZ • Verified University Opportunity Directory</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify('Opportunities catalog print layout generated.');
+    } else {
+      window.print();
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Top Banner Header */}
@@ -170,14 +290,23 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handlePrintCatalog}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all"
+            title="Print full verified opportunities catalog"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-600" />
+            <span>Print Catalog</span>
+          </button>
+
           <button
             onClick={handleRefreshFeed}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition-all disabled:opacity-50"
             title="Refresh feed records"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-sky-600' : 'text-slate-500'}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-600' : 'text-indigo-600'}`} />
             <span>{isLoading ? 'Syncing...' : 'Refresh Feed'}</span>
           </button>
         </div>
@@ -375,7 +504,23 @@ export const OpportunitiesView: React.FC<OpportunitiesViewProps> = ({
                   size="sm"
                 />
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => handlePrintOpportunity(item)}
+                    className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                    title="Print single opportunity details & application guidelines"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => handleShareEmail(item)}
+                    className="p-2 text-sky-700 hover:bg-sky-50 rounded-xl transition-colors"
+                    title="Share via Email"
+                  >
+                    <Mail className="w-4 h-4" />
+                  </button>
+
                   <button
                     onClick={() => handleShareWhatsApp(item)}
                     className="p-2 text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors"

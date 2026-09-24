@@ -538,6 +538,37 @@ async function startServer() {
     return aiClient;
   }
 
+  async function generateContentWithFallback(
+    client: GoogleGenAI,
+    contents: any,
+    config?: any
+  ): Promise<string | null> {
+    const candidateModels = [
+      'gemini-3.8-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
+    ];
+
+    for (const model of candidateModels) {
+      try {
+        const response = await client.models.generateContent({
+          model,
+          contents,
+          ...(config ? { config } : {}),
+        });
+        const text = response?.text?.trim();
+        if (text) {
+          return text;
+        }
+      } catch {
+        // If transient 503, 429, or model unavailable, try next valid model
+        continue;
+      }
+    }
+
+    return null;
+  }
+
   // Health endpoint
   app.get("/api/health", (req, res) => {
     res.json({
@@ -571,34 +602,26 @@ Current Student Context:
 
 Provide concise, friendly, practical academic advice, clear venue directions, and study recommendations. Keep formatting clean with markdown bullet points.`;
 
-      let response: any;
-      try {
-        response = await client.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: [
-            { role: 'user', parts: [{ text: `${systemInstruction}\n\nStudent Question: ${message}` }] }
-          ],
-        });
-      } catch (primaryModelErr) {
-        console.warn("Primary model gemini-3.8-flash failed, trying gemini-3.6-flash:", primaryModelErr);
-        response = await client.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: [
-            { role: 'user', parts: [{ text: `${systemInstruction}\n\nStudent Question: ${message}` }] }
-          ],
+      const contents = [
+        { role: 'user', parts: [{ text: `${systemInstruction}\n\nStudent Question: ${message}` }] }
+      ];
+
+      const text = await generateContentWithFallback(client, contents);
+      if (text) {
+        return res.json({
+          reply: text,
+          mode: 'gemini_cloud',
         });
       }
 
       res.json({
-        reply: response.text || generateLocalSmartReply(message, studentContext),
-        mode: 'gemini_cloud',
+        reply: generateLocalSmartReply(message, studentContext),
+        mode: 'smart_local_fallback',
       });
-    } catch (error: any) {
-      console.warn("AI Chat fallback triggered:", error?.message || error);
+    } catch {
       res.json({
         reply: generateLocalSmartReply(req.body?.message, req.body?.studentContext),
         mode: 'smart_local_fallback',
-        warning: error?.message,
       });
     }
   });
@@ -655,34 +678,30 @@ Return ONLY the raw JSON array, without markdown backticks.`;
         return res.json({ slots: generateFallbackParsedSlots(), mode: 'default' });
       }
 
-      let response: any;
-      try {
-        response = await client.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: parts,
-        });
-      } catch (primaryErr) {
-        console.warn("Primary model gemini-3.8-flash failed, trying gemini-3.6-flash:", primaryErr);
-        response = await client.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: parts,
-        });
+      const text = await generateContentWithFallback(client, parts);
+      if (text) {
+        const cleanJson = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        try {
+          const slots = JSON.parse(cleanJson);
+          if (Array.isArray(slots) && slots.length > 0) {
+            return res.json({
+              slots,
+              mode: 'gemini_ocr',
+            });
+          }
+        } catch {
+          // parse failed, use fallback
+        }
       }
 
-      const rawText = response.text?.trim() || '[]';
-      const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-      let slots = JSON.parse(cleanJson);
-
       res.json({
-        slots,
-        mode: 'gemini_ocr',
+        slots: generateFallbackParsedSlots(textData),
+        mode: 'smart_parser_fallback',
       });
-    } catch (error: any) {
-      console.warn("AI Timetable parse fallback triggered:", error?.message || error);
+    } catch {
       res.json({
         slots: generateFallbackParsedSlots(req.body?.textData),
         mode: 'smart_parser_fallback',
-        warning: error?.message,
       });
     }
   });
@@ -743,42 +762,36 @@ Format: Return a valid JSON array of objects with EXACTLY this structure:
 ]
 Return ONLY the raw JSON array. Do not include markdown code block ticks.`;
 
-      let response: any;
-      try {
-        response = await client.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        });
-      } catch (geminiErr) {
-        console.warn("Primary gemini-3.8-flash feed generation failed, trying gemini-3.6-flash:", geminiErr);
-        response = await client.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        });
-      }
-
-      const rawText = response.text?.trim() || '[]';
-      const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-      let parsedItems = JSON.parse(cleanJson);
-
-      if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
-        parsedItems = getCuratedPersonalizedFeeds(fieldOfStudy, programme, courses, category);
+      const text = await generateContentWithFallback(client, [{ role: 'user', parts: [{ text: prompt }] }]);
+      if (text) {
+        const cleanJson = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        try {
+          let parsedItems = JSON.parse(cleanJson);
+          if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+            return res.json({
+              items: parsedItems,
+              mode: 'gemini_ai_live',
+              timestamp: new Date().toISOString(),
+              refreshCadenceMinutes: 20,
+            });
+          }
+        } catch {
+          // JSON parse failed, use curated feed
+        }
       }
 
       res.json({
-        items: parsedItems,
-        mode: 'gemini_ai_live',
+        items: getCuratedPersonalizedFeeds(fieldOfStudy, programme, courses, category),
+        mode: 'curated_subject_fallback',
         timestamp: new Date().toISOString(),
         refreshCadenceMinutes: 20,
       });
-    } catch (err: any) {
-      console.warn("AI Feed generation fallback:", err?.message || err);
+    } catch {
       res.json({
         items: getCuratedPersonalizedFeeds(req.body?.fieldOfStudy, req.body?.programme, req.body?.courses, req.body?.category),
         mode: 'curated_fallback',
         timestamp: new Date().toISOString(),
         refreshCadenceMinutes: 20,
-        warning: err?.message,
       });
     }
   });

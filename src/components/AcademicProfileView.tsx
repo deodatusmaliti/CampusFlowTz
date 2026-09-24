@@ -28,7 +28,8 @@ import {
   Share2, 
   PhoneCall, 
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { User, UserPrivacySettings, UserEmergencyContact } from '../types';
 import { StorageService } from '../services/storageService';
@@ -213,6 +214,99 @@ export const AcademicProfileView: React.FC<AcademicProfileViewProps> = ({
     onNotify('Academic profile exported as JSON.');
   };
 
+  // Print Academic Profile Slip
+  const handlePrintProfileSlip = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Academic Student Profile - ${profile.name}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0284c7; padding-bottom: 16px; margin-bottom: 24px; }
+              .uni-title { font-size: 20px; font-weight: 900; color: #0369a1; text-transform: uppercase; }
+              .doc-title { font-size: 14px; font-weight: 700; color: #475569; }
+              .profile-box { display: grid; grid-template-columns: 120px 1fr; gap: 20px; margin-bottom: 24px; align-items: center; }
+              .avatar { width: 120px; height: 120px; border-radius: 12px; object-fit: cover; border: 1px solid #cbd5e1; }
+              .avatar-placeholder { width: 120px; height: 120px; border-radius: 12px; background: #0284c7; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: bold; }
+              .name { font-size: 22px; font-weight: 900; color: #0f172a; margin-bottom: 4px; }
+              .meta { font-size: 13px; color: #334155; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+              th { background: #f1f5f9; font-weight: 800; width: 30%; }
+              .section-heading { font-size: 15px; font-weight: 800; color: #0369a1; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+              .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div>
+                <div class="uni-title">${profile.university || 'Tanzanian Higher Learning Institution'}</div>
+                <div class="doc-title">Official Student Academic Profile Record</div>
+              </div>
+              <div style="text-align: right; font-size: 12px; color: #64748b;">
+                Generated: ${new Date().toLocaleDateString()}<br/>
+                Verification: <strong>VALID ACTIVE STUDENT</strong>
+              </div>
+            </div>
+
+            <div class="profile-box">
+              ${profile.avatar ? `<img src="${profile.avatar}" class="avatar" />` : `<div class="avatar-placeholder">${profile.name.charAt(0)}</div>`}
+              <div>
+                <div class="name">${profile.name}</div>
+                <div class="meta">
+                  <strong>ID / Reg:</strong> ${profile.studentId || profile.regNumber || 'Not specified'}<br/>
+                  <strong>Programme:</strong> ${profile.programme}<br/>
+                  <strong>Department / Faculty:</strong> ${profile.department || 'Faculty of Science'}<br/>
+                  <strong>Academic Year:</strong> Year ${profile.currentYear} (${profile.academicYear || '2026/2027'})
+                </div>
+              </div>
+            </div>
+
+            <div class="section-heading">Academic & Contact Information</div>
+            <table>
+              <tr><th>Full Name</th><td>${profile.name}</td></tr>
+              <tr><th>Institutional Email</th><td>${profile.email}</td></tr>
+              <tr><th>Phone Number</th><td>${profile.phone || 'Not disclosed'}</td></tr>
+              <tr><th>Leadership / Representation</th><td>${profile.leadershipTitle || 'Student Member'}</td></tr>
+              <tr><th>Campus / Hostel Residence</th><td>${profile.hostelRoom || 'Off-Campus Private Residence'}</td></tr>
+              <tr><th>Emergency Contact</th><td>${profile.emergencyContact?.name ? `${profile.emergencyContact.name} (${profile.emergencyContact.relationship}) - ${profile.emergencyContact.phone}` : 'None provided'}</td></tr>
+            </table>
+
+            <div class="section-heading">Academic Skills & Focus Areas</div>
+            <p style="font-size: 12px; color: #334155;">
+              <strong>Skills:</strong> ${(profile.skills || []).join(', ') || 'General Academic Proficiency'}<br/>
+              <strong>Interests:</strong> ${(profile.academicInterests || []).join(', ') || 'Interdisciplinary Studies'}<br/>
+              <strong>Career Goals:</strong> ${(profile.careerAspirations || []).join(', ') || 'Professional Practice'}
+            </p>
+
+            <div class="footer">
+              <span>CampusFlow TZ Student Management System</span>
+              <span>Printed Record</span>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify('Student profile slip print layout generated.');
+    } else {
+      window.print();
+    }
+  };
+
+  // Share profile summary
+  const handleShareProfile = () => {
+    const summary = `🎓 *CampusFlow TZ Academic Profile*\nName: ${profile.name}\nProgramme: ${profile.programme} (Year ${profile.currentYear})\nUniversity: ${profile.university}\nEmail: ${profile.email}\nID: ${profile.studentId || profile.regNumber}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(summary);
+    }
+    onNotify('Academic profile summary copied to clipboard!');
+  };
+
   // Reset demo profile
   const handleResetProfile = () => {
     if (window.confirm('Reset your profile details back to the default demo student identity?')) {
@@ -286,17 +380,37 @@ export const AcademicProfileView: React.FC<AcademicProfileViewProps> = ({
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <button
             type="button"
+            onClick={handlePrintProfileSlip}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+            title="Print official student profile record slip"
+          >
+            <Printer className="w-4 h-4 text-slate-600" />
+            <span>Print Slip</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleShareProfile}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+            title="Copy academic profile summary"
+          >
+            <Share2 className="w-4 h-4 text-slate-600" />
+            <span>Share</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
           >
             <Eye className="w-4 h-4 text-slate-500" />
-            <span>Public Preview</span>
+            <span>Preview</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportProfile}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
             title="Download profile as JSON"
           >
             <Download className="w-4 h-4 text-slate-500" />

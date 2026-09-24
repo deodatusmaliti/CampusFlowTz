@@ -11,7 +11,10 @@ import {
   Clock, 
   Sparkles,
   Share2,
-  HelpCircle
+  HelpCircle,
+  Printer,
+  Mail,
+  Copy
 } from 'lucide-react';
 import { Course, User as UserType } from '../types';
 
@@ -91,6 +94,90 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
     setNotes('');
   };
 
+  const handlePrintCourses = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Course Catalogue & Syllabus - ${currentUser.university}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+              h1 { font-size: 22px; font-weight: 900; margin: 0 0 6px 0; color: #0369a1; }
+              .sub { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+              th { background: #f1f5f9; font-weight: 800; }
+              tr:nth-child(even) { background: #f8fafc; }
+              .footer { margin-top: 30px; font-size: 11px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <h1>${currentUser.university} • Enrolled Course Catalogue</h1>
+            <div class="sub">Student: ${currentUser.name} (${currentUser.programme}, Year ${currentUser.currentYear})</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Title</th>
+                  <th>Credits</th>
+                  <th>Lecturer</th>
+                  <th>Hall</th>
+                  <th>Schedule</th>
+                  <th>CAT Score</th>
+                  <th>Attendance</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${courses.map(c => `
+                  <tr>
+                    <td><strong>${c.code}</strong></td>
+                    <td><strong>${c.title}</strong></td>
+                    <td>${c.credits || 12}</td>
+                    <td>${c.lecturer || 'TBA'}</td>
+                    <td>${c.hall || 'TBA'}</td>
+                    <td>${c.schedule || 'TBA'}</td>
+                    <td>${c.currentScore}%</td>
+                    <td>${c.attendance}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">Printed from CampusFlow TZ • ${new Date().toLocaleDateString()}</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      onNotify('Course catalogue print layout generated.');
+    } else {
+      window.print();
+    }
+  };
+
+  const handleShareWhatsApp = (course: Course) => {
+    const text = `📚 *CampusFlow TZ Course Details*\n*${course.code}: ${course.title}*\nLecturer: ${course.lecturer}\nVenue: ${course.hall}\nSchedule: ${course.schedule}\nAttendance: ${course.attendance}%`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    onNotify(`Sharing "${course.code}" via WhatsApp...`);
+  };
+
+  const handleShareEmail = (course: Course) => {
+    const subject = `Course Syllabus & Details: ${course.code} - ${course.title}`;
+    const body = `Hello,\n\nCourse Information on CampusFlow TZ:\n\nCourse: ${course.code} - ${course.title}\nLecturer: ${course.lecturer}\nLecture Hall: ${course.hall}\nSchedule: ${course.schedule}\nCredits: ${course.credits}\nNotes: ${course.notes || 'None'}\n`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onNotify(`Opening email client to share "${course.code}"...`);
+  };
+
+  const handleCopyCourse = (course: Course) => {
+    const str = `${course.code}: ${course.title} | Lecturer: ${course.lecturer} | Hall: ${course.hall} | Schedule: ${course.schedule}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(str);
+    }
+    onNotify(`Course info for "${course.code}" copied to clipboard!`);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Header */}
@@ -108,6 +195,14 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={handlePrintCourses}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5"
+            title="Print course catalogue and syllabus"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-600" /> Print Catalogue
+          </button>
+
           <button
             onClick={onLoadMedicineDemo}
             className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors flex items-center gap-1.5"
@@ -400,19 +495,38 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-100">
                   <button
-                    onClick={() => onNavigateToCommunity(course.code)}
-                    className="flex-1 py-1.5 px-3 rounded-lg bg-[#edf7f2] hover:bg-[#d8efe2] text-[#16845d] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                    onClick={() => handleShareWhatsApp(course)}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-emerald-800 hover:bg-emerald-50 text-xs font-semibold transition-colors"
+                    title="Share course on WhatsApp"
                   >
-                    Academic Community Space
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>WhatsApp</span>
                   </button>
+
                   <button
-                    onClick={() => onNavigateToShare(course.code)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-                    title="Share Timetable"
+                    onClick={() => handleShareEmail(course)}
+                    className="p-1.5 rounded-lg text-sky-800 hover:bg-sky-50 transition-colors"
+                    title="Share course via Email"
                   >
-                    <Share2 className="w-4 h-4" />
+                    <Mail className="w-3.5 h-3.5 text-sky-600" />
+                  </button>
+
+                  <button
+                    onClick={() => handleCopyCourse(course)}
+                    className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                    title="Copy course details"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => onRemoveCourse(course.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    title="Remove from catalogue"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

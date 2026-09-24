@@ -16,6 +16,35 @@ export type LeadershipTitle =
 
 export type PaymentChannel = 'M-Pesa' | 'Mixx by Yas' | 'Airtel Money' | 'HaloPesa' | 'AzamPesa' | 'Card' | 'Bank' | 'QR';
 
+export type CourseCategoryOption = 
+  | 'Lecture'
+  | 'Laboratory/practical'
+  | 'Tutorial'
+  | 'Field study'
+  | 'Seminar'
+  | 'Clinical session'
+  | 'Test'
+  | 'Examination'
+  | 'Independent study'
+  | 'Core'
+  | 'Elective'
+  | 'Clinical'
+  | 'Practical'
+  | 'Fieldwork'
+  | 'Independent';
+
+export type CourseAcademicStatus = 'active' | 'completed' | 'withdrawn';
+
+export interface CourseRelatedAssessmentDate {
+  id: string;
+  type: 'test' | 'assignment' | 'lab' | 'exam';
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  venue?: string;
+  notes?: string;
+}
+
 export interface CourseSession {
   day: DayOfWeek;
   startTime: string; // "09:00"
@@ -39,11 +68,18 @@ export interface Course {
   hall: string;
   venue?: string;
   schedule: string;
+  lectureDay?: DayOfWeek | string;
+  startTime?: string;
+  endTime?: string;
   currentScore: number;
   attendance: number;
   notes: string;
   color?: string;
   category?: 'Core' | 'Elective' | 'Clinical' | 'Practical' | 'Fieldwork' | 'Independent';
+  courseCategory?: CourseCategoryOption | string;
+  status?: CourseAcademicStatus;
+  assessmentStructure?: string;
+  prerequisitesText?: string;
   syllabus?: string[];
   syllabusTopics?: string[];
   description?: string;
@@ -70,6 +106,7 @@ export interface Course {
   sessions?: CourseSession[];
   examDate?: string;
   examVenue?: string;
+  relatedDates?: CourseRelatedAssessmentDate[];
 }
 
 export interface CalendarEvent {
@@ -140,7 +177,10 @@ export interface User {
   biography?: string;
   academicInterests?: string[];
   careerInterests?: string[];
+  careerAspirations?: string[];
   skills?: string[];
+  academicYear?: string;
+  hostelRoom?: string;
   emergencyContact?: UserEmergencyContact;
   accessibilityNeeds?: string;
   preferredContactMethod?: 'CampusFlow' | 'WhatsApp' | 'Email' | 'Phone';
@@ -157,11 +197,13 @@ export interface TimetableSlot {
   id: string;
   courseCode: string; // e.g. "BIO 203"
   courseName: string; // e.g. "Biostatistics & Research Methodology"
+  title?: string; // alias for courseName compatibility
   day: DayOfWeek;
   startTime: string; // "09:30"
   endTime: string; // "10:30"
   timeFormatted?: string; // "09:30 - 10:30 AM"
   hall: string; // e.g. "Hall 03"
+  venue?: string; // alias for hall compatibility
   building?: string; // e.g. "CoNAS Main Complex"
   lecturer: string; // e.g. "Prof. Assad"
   lecturerEmail?: string;
@@ -171,6 +213,7 @@ export interface TimetableSlot {
   color?: string;
   notes?: string;
   attendanceRequired?: boolean;
+  attendanceMarked?: boolean;
 }
 
 export interface AnnouncementAttachment {
@@ -468,6 +511,15 @@ export interface StudyMaterial {
   uploadDate: string; // YYYY-MM-DD
   description: string;
   downloadCount: number;
+  institution?: string;
+  sourceLink?: string;
+  actualFileUrl?: string;
+  previewAvailable?: boolean;
+  previewType?: 'pdf' | 'image' | 'text' | 'office' | 'link' | 'document';
+  isSample?: boolean;
+  isSampleDemo?: boolean;
+  sampleType?: 'pdf' | 'docx' | 'image' | 'presentation' | 'external_link' | 'text';
+  textPreviewContent?: string;
   isOfficial?: boolean;
   isRecommended?: boolean;
   isBookmarked?: boolean;
@@ -475,6 +527,34 @@ export interface StudyMaterial {
   downloadUrl?: string;
   contentDataUrl?: string; // local preview/blob support
   tags?: string[];
+}
+
+// ----------------------------------------------------
+// FLEXIBLE INSTITUTION COURSE-CREDIT SYSTEM
+// ----------------------------------------------------
+export type CreditSystemType = 'tanzania' | 'ects' | 'us_credits' | 'uk_cats' | 'custom';
+
+export interface InstitutionCreditConfig {
+  institutionName: string;
+  systemType: CreditSystemType;
+  unitLabel: string; // e.g. "Credits", "ECTS", "Credit Hours", "CATS"
+  normalMinCredits: number;
+  recommendedCredits: number;
+  normalMaxCredits: number;
+  annualCredits: number;
+  allowWarnings: boolean; // default false (no fixed warning by default)
+  practicalWeightingMultiplier?: number; // e.g. 1.0 or 1.5
+  disclaimerAccepted?: boolean;
+}
+
+// ----------------------------------------------------
+// TIMEZONE & CALENDAR CONFIGURATION
+// ----------------------------------------------------
+export type TimezoneSettingMode = 'auto' | 'tanzania' | 'manual';
+
+export interface UserTimezoneConfig {
+  mode: TimezoneSettingMode;
+  manualTimezone: string; // e.g. "Africa/Dar_es_Salaam", "Europe/London", etc.
 }
 
 // ----------------------------------------------------

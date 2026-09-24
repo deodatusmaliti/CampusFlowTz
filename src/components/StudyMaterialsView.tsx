@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { StudyMaterial, StudyMaterialType, User, Course } from '../types';
 import { StorageService } from '../services/storageService';
+import { MaterialFileService } from '../services/materialFileService';
 import { EndorsementButton } from './EndorsementButton';
 
 interface StudyMaterialsViewProps {
@@ -67,6 +68,43 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
   const [previewMaterial, setPreviewMaterial] = useState<StudyMaterial | null>(null);
   const [previewPage, setPreviewPage] = useState<number>(1);
   const [previewZoom, setPreviewZoom] = useState<number>(100);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewTextContent, setPreviewTextContent] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(false);
+
+  const openPreview = async (material: StudyMaterial) => {
+    if (previewBlobUrl) {
+      URL.revokeObjectURL(previewBlobUrl);
+      setPreviewBlobUrl(null);
+    }
+    setPreviewTextContent(null);
+    setPreviewMaterial(material);
+    setPreviewLoading(true);
+
+    try {
+      const blob = await MaterialFileService.getMaterialBlob(material);
+      if (material.fileType === 'pdf' || material.fileType === 'image') {
+        const url = URL.createObjectURL(blob);
+        setPreviewBlobUrl(url);
+      } else if (material.fileType === 'txt') {
+        const text = await blob.text();
+        setPreviewTextContent(text);
+      }
+    } catch (err) {
+      console.error('Failed to load material blob:', err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewBlobUrl) {
+      URL.revokeObjectURL(previewBlobUrl);
+      setPreviewBlobUrl(null);
+    }
+    setPreviewTextContent(null);
+    setPreviewMaterial(null);
+  };
 
   // Upload modal state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -147,100 +185,97 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
     }
   };
 
-  const handleDownload = (item: StudyMaterial) => {
-    // Increment count
-    const updated = StorageService.incrementDownloadCount(item.id);
-    setMaterials(updated);
+  const handleDownload = async (item: StudyMaterial) => {
+    try {
+      // Increment count
+      const updated = StorageService.incrementDownloadCount(item.id);
+      setMaterials(updated);
 
-    // Create a real downloadable file blob with simulated academic content
-    const fileHeader = `CAMPUSFLOW TZ ACADEMIC REPOSITORY\n=========================================\nCourse: ${item.courseCode} - ${item.courseTitle}\nDocument: ${item.title}\nUploaded by: ${item.uploadedBy} (${item.uploaderRole})\nDate: ${item.uploadDate}\nSecurity / Integrity Check: Verified SHA-256\n=========================================\n\n${item.description}\n\n[Official University Material - For Study Purposes Only]`;
-    
-    const blob = new Blob([fileHeader], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = item.fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const { url, fileName } = await MaterialFileService.createDownloadUrl(item);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-    onNotify(`Downloaded "${item.fileName}" successfully!`);
-  };
-
-  // Print material
-  const handlePrintMaterial = (item: StudyMaterial) => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print: ${item.title}</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; }
-              .header { border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 24px; }
-              .title { font-size: 24px; font-weight: bold; margin: 0 0 6px 0; color: #0f172a; }
-              .meta { font-size: 13px; color: #64748b; margin-bottom: 4px; }
-              .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #e0f2fe; color: #0369a1; }
-              .content { font-size: 14px; line-height: 1.6; margin-top: 20px; }
-              .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <span class="badge">${item.courseCode}</span>
-              <h1 class="title">${item.title}</h1>
-              <div class="meta">Course: ${item.courseTitle} | File: ${item.fileName} (${item.fileSize})</div>
-              <div class="meta">Uploaded by: ${item.uploadedBy} (${item.uploaderRole}) on ${item.uploadDate}</div>
-            </div>
-            <div class="content">
-              <h3>Document Description & Syllabus Notes:</h3>
-              <p>${item.description}</p>
-              <hr style="border: 0; border-top: 1px dashed #cbd5e1; margin: 24px 0;" />
-              <h3>Course Topics & Key Concepts:</h3>
-              <ul>
-                <li>Systematic anatomy and vertebrate taxonomic hierarchy</li>
-                <li>Laboratory procedures, dissection tools and sample preparation protocols</li>
-                <li>Continuous assessment review points and reference reading chapters</li>
-              </ul>
-            </div>
-            <div class="footer">
-              Printed from CampusFlow TZ Academic Repository on ${new Date().toLocaleDateString()} • University of Dar es Salaam
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      onNotify(`Print layout opened for "${item.fileName}".`);
-    } else {
-      window.print();
-      onNotify(`Print dialog launched for "${item.fileName}".`);
+      onNotify(`Downloaded "${fileName}" successfully!`);
+    } catch (err) {
+      console.error(err);
+      onNotify(`Download failed for "${item.fileName}".`);
     }
   };
 
-  // Share via WhatsApp
-  const handleShareWhatsApp = (item: StudyMaterial) => {
-    const text = `📘 *CampusFlow TZ Study Material*\n*${item.title}*\nCourse: ${item.courseCode} - ${item.courseTitle}\nFile: ${item.fileName} (${item.fileSize})\nUploaded by: ${item.uploadedBy} (${item.uploaderRole})\nAccess here: ${window.location.origin}/#/materials?id=${item.id}`;
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-    onNotify(`Sharing "${item.title}" via WhatsApp...`);
+  // Real Print material
+  const handlePrintMaterial = async (item: StudyMaterial) => {
+    if (['docx', 'pptx', 'xlsx', 'zip'].includes(item.fileType)) {
+      if (window.confirm(`Office documents (.${item.fileType}) cannot be printed directly by browser layout engines. Would you like to download "${item.fileName}" to print via your office suite?`)) {
+        await handleDownload(item);
+      }
+      return;
+    }
+
+    try {
+      const blob = await MaterialFileService.getMaterialBlob(item);
+      if (item.fileType === 'pdf') {
+        const blobUrl = URL.createObjectURL(blob);
+        const win = window.open(blobUrl, '_blank');
+        if (win) {
+          win.focus();
+        }
+        onNotify(`Opened authentic PDF document for printing: "${item.fileName}".`);
+      } else if (item.fileType === 'image') {
+        const blobUrl = URL.createObjectURL(blob);
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(`<!DOCTYPE html><html><head><title>Print ${item.title}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="${blobUrl}" style="max-width:100%;max-height:100vh;" onload="window.print()" /></body></html>`);
+          win.document.close();
+        }
+        onNotify(`Opened diagram print view for "${item.fileName}".`);
+      } else {
+        const text = await blob.text();
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(`<!DOCTYPE html><html><head><title>Print ${item.title}</title><style>body{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;padding:36px;line-height:1.6;color:#0f172a;}</style></head><body>${text.replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c] || c))}</body></html>`);
+          win.document.close();
+          win.focus();
+          win.print();
+        }
+        onNotify(`Print layout opened for "${item.fileName}".`);
+      }
+    } catch (err) {
+      console.error(err);
+      onNotify(`Print action error for "${item.fileName}".`);
+    }
   };
 
-  // Share via Email
+  // Share via WhatsApp with actual link
+  const handleShareWhatsApp = (item: StudyMaterial) => {
+    const link = item.sourceLink && item.sourceLink.startsWith('http') 
+      ? item.sourceLink 
+      : `${window.location.origin}/#/materials?id=${item.id}`;
+    const text = `📘 *CampusFlow TZ Study Material*\n*${item.title}*\nCourse: ${item.courseCode} - ${item.courseTitle}\nInstitution: ${item.institution || 'University of Dar es Salaam'}\nUploaded by: ${item.uploadedBy}\nFile: ${item.fileName} (${item.fileSize})\nLink: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    onNotify(`Prepared WhatsApp message for "${item.title}".`);
+  };
+
+  // Share via Email with actual link
   const handleShareEmail = (item: StudyMaterial) => {
-    const subject = `Study Material: ${item.title} (${item.courseCode})`;
-    const body = `Hello,\n\nI am sharing this study material from CampusFlow TZ:\n\nTitle: ${item.title}\nCourse: ${item.courseCode} - ${item.courseTitle}\nFile: ${item.fileName} (${item.fileSize})\nUploaded by: ${item.uploadedBy}\nDate: ${item.uploadDate}\n\nDescription:\n${item.description}\n\nView on CampusFlow TZ: ${window.location.origin}/#/materials?id=${item.id}\n`;
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoUrl;
-    onNotify(`Email client launched to share "${item.title}".`);
+    const link = item.sourceLink && item.sourceLink.startsWith('http') 
+      ? item.sourceLink 
+      : `${window.location.origin}/#/materials?id=${item.id}`;
+    const subject = `Study Resource: ${item.title} (${item.courseCode})`;
+    const body = `Hello,\n\nSharing this study resource from CampusFlow TZ:\n\nTitle: ${item.title}\nCourse: ${item.courseCode} - ${item.courseTitle}\nInstitution: ${item.institution || 'University of Dar es Salaam'}\nUploaded by: ${item.uploadedBy}\nFile: ${item.fileName} (${item.fileSize})\nDirect Link: ${link}\n\nDescription:\n${item.description}\n`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onNotify(`Prepared email draft for "${item.title}".`);
   };
 
   // Copy shareable link
   const handleCopyLink = (item: StudyMaterial) => {
-    const shareableUrl = `${window.location.origin}/#/materials?id=${item.id}`;
+    const shareableUrl = item.sourceLink && item.sourceLink.startsWith('http') 
+      ? item.sourceLink 
+      : `${window.location.origin}/#/materials?id=${item.id}`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareableUrl);
     }
@@ -248,7 +283,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
     setActiveShareId(null);
   };
 
-  // Upload Logic
+  // Upload Logic with real IndexedDB binary persistence
   const handleFileSelect = (file: File) => {
     setUploadError(null);
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
@@ -275,7 +310,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
     }
   };
 
-  const handleExecuteUpload = () => {
+  const handleExecuteUpload = async () => {
     if (!selectedFile) {
       setUploadError('Please select a file to upload.');
       return;
@@ -286,7 +321,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
     }
 
     setIsUploading(true);
-    setUploadProgress(15);
+    setUploadProgress(20);
 
     const ext = '.' + selectedFile.name.split('.').pop()?.toLowerCase();
     let detectedType: StudyMaterialType = 'other';
@@ -300,14 +335,15 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
 
     const courseObj = courses.find(c => c.code === uploadCourseCode);
     const sizeStr = (selectedFile.size / (1024 * 1024)).toFixed(1) + ' MB';
+    const materialId = 'mat_' + Date.now();
 
-    // Read file as Data URL so it can be previewed directly
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
+    try {
+      // Store actual binary blob in IndexedDB (prevents localStorage quota overflow)
+      await MaterialFileService.storeUploadedFile(materialId, selectedFile);
+      setUploadProgress(70);
 
       const newMaterial: StudyMaterial = {
-        id: 'mat_' + Date.now(),
+        id: materialId,
         title: uploadTitle.trim(),
         fileName: selectedFile.name,
         fileType: detectedType,
@@ -315,7 +351,8 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
         fileSizeBytes: selectedFile.size,
         courseCode: uploadCourseCode,
         courseTitle: courseObj?.title || uploadCourseCode,
-        department: 'Zoology & Life Sciences',
+        department: courseObj?.department || 'Life Sciences',
+        institution: user.university || 'University of Dar es Salaam',
         programme: user.programme,
         year: courseObj?.year || user.currentYear,
         semester: courseObj?.semester || 'Semester 1',
@@ -323,35 +360,35 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
         uploaderRole: user.role,
         uploaderId: user.id,
         uploadDate: new Date().toISOString().slice(0, 10),
-        description: uploadDescription.trim() || 'Uploaded course study notes and lecture slides.',
+        description: uploadDescription.trim() || 'Uploaded course study notes and lecture resources.',
         downloadCount: 0,
         isOfficial: uploadIsOfficial,
         isRecommended: uploadIsRecommended,
         isBookmarked: false,
-        contentDataUrl: dataUrl,
+        isSample: false,
+        sourceLink: `#/materials?id=${materialId}`,
+        previewType: detectedType === 'pdf' ? 'document' : detectedType === 'image' ? 'image' : detectedType === 'txt' ? 'text' : 'office',
         tags: [uploadCourseCode, detectedType.toUpperCase()],
       };
 
-      // Progress animation
-      setUploadProgress(70);
+      setUploadProgress(100);
+      const updated = StorageService.saveStudyMaterial(newMaterial);
+      setMaterials(updated);
+
       setTimeout(() => {
-        setUploadProgress(100);
-        const updated = StorageService.saveStudyMaterial(newMaterial);
-        setMaterials(updated);
-
-        setTimeout(() => {
-          setIsUploading(false);
-          setIsUploadOpen(false);
-          setSelectedFile(null);
-          setUploadTitle('');
-          setUploadDescription('');
-          setUploadProgress(0);
-          onNotify(`"${newMaterial.title}" uploaded successfully to lecture archives.`);
-        }, 300);
-      }, 500);
-    };
-
-    reader.readAsDataURL(selectedFile);
+        setIsUploading(false);
+        setIsUploadOpen(false);
+        setSelectedFile(null);
+        setUploadTitle('');
+        setUploadDescription('');
+        setUploadProgress(0);
+        onNotify(`"${newMaterial.title}" uploaded successfully to lecture archives.`);
+      }, 300);
+    } catch (err) {
+      console.error(err);
+      setIsUploading(false);
+      setUploadError('Failed to store file. Please try a smaller file or another format.');
+    }
   };
 
   // Helper for file type icons
@@ -546,6 +583,11 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
                           Recommended
                         </span>
                       )}
+                      {item.isSample && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold">
+                          Sample File
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -564,7 +606,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
 
                 <div>
                   <h3 
-                    onClick={() => { setPreviewMaterial(item); setPreviewPage(1); }}
+                    onClick={() => openPreview(item)}
                     className="text-sm font-bold text-slate-900 group-hover:text-sky-700 transition-colors line-clamp-1 cursor-pointer hover:underline"
                     title="Click to preview file"
                   >
@@ -582,11 +624,12 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
                   <span>Size: <strong>{item.fileSize}</strong></span>
                 </div>
 
-                <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-                  <UserIcon className="w-3 h-3 text-slate-400" />
-                  <span className="truncate">By <strong>{item.uploadedBy}</strong> ({item.uploaderRole})</span>
-                  <span className="text-slate-300">•</span>
-                  <span>{item.uploadDate}</span>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <UserIcon className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span className="truncate"><strong>{item.uploadedBy}</strong></span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 shrink-0 font-medium">{item.institution || 'UDSM'}</span>
                 </div>
               </div>
 
@@ -659,7 +702,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
                 {/* Primary Card Buttons: Preview and Download */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
-                    onClick={() => { setPreviewMaterial(item); setPreviewPage(1); }}
+                    onClick={() => openPreview(item)}
                     className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold rounded-xl transition-all border border-sky-200"
                   >
                     <Eye className="w-3.5 h-3.5 text-sky-600" />
@@ -684,7 +727,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
       {previewMaterial && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs"
-          onClick={() => setPreviewMaterial(null)}
+          onClick={closePreview}
         >
           <div 
             className="bg-white rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
@@ -704,6 +747,11 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
                     <span className="text-slate-400 text-xs">
                       • {previewMaterial.fileName} ({previewMaterial.fileSize})
                     </span>
+                    {previewMaterial.isSample && (
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                        Authentic Sample
+                      </span>
+                    )}
                   </div>
                   <h2 className="text-base sm:text-lg font-black text-white line-clamp-1 mt-0.5">
                     {previewMaterial.title}
@@ -759,7 +807,7 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setPreviewMaterial(null)}
+                  onClick={closePreview}
                   className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors ml-1"
                 >
                   <X className="w-5 h-5" />
@@ -772,260 +820,167 @@ export const StudyMaterialsView: React.FC<StudyMaterialsViewProps> = ({
               <div className="flex items-center gap-3">
                 <span>Course: <strong>{previewMaterial.courseTitle}</strong></span>
                 <span className="text-slate-300">•</span>
-                <span>Uploaded by: <strong>{previewMaterial.uploadedBy}</strong> ({previewMaterial.uploadDate})</span>
+                <span>Institution: <strong>{previewMaterial.institution || 'University of Dar es Salaam'}</strong></span>
+                <span className="text-slate-300">•</span>
+                <span>By: <strong>{previewMaterial.uploadedBy}</strong> ({previewMaterial.uploadDate})</span>
               </div>
 
-              {/* Zoom & Page controls for PDF / image */}
-              {(previewMaterial.fileType === 'pdf' || previewMaterial.fileType === 'image') && (
-                <div className="flex items-center gap-2">
-                  {previewMaterial.fileType === 'pdf' && (
-                    <div className="flex items-center gap-1 mr-2">
-                      <button
-                        onClick={() => setPreviewPage(p => Math.max(1, p - 1))}
-                        disabled={previewPage <= 1}
-                        className="p-1 rounded hover:bg-slate-200 disabled:opacity-40"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="font-mono text-[11px]">Page {previewPage} of 4</span>
-                      <button
-                        onClick={() => setPreviewPage(p => Math.min(4, p + 1))}
-                        disabled={previewPage >= 4}
-                        className="p-1 rounded hover:bg-slate-200 disabled:opacity-40"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                    <button onClick={() => setPreviewZoom(z => Math.max(60, z - 20))} className="p-0.5 hover:text-sky-600">
-                      <ZoomOut className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="font-mono text-[11px] w-10 text-center">{previewZoom}%</span>
-                    <button onClick={() => setPreviewZoom(z => Math.min(180, z + 20))} className="p-0.5 hover:text-sky-600">
-                      <ZoomIn className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+              {previewMaterial.sourceLink && previewMaterial.sourceLink.startsWith('http') && (
+                <a
+                  href={previewMaterial.sourceLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>External Source Link</span>
+                </a>
               )}
             </div>
 
             {/* Document Body Content Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50 flex justify-center">
-              {/* PDF Previewer */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 flex flex-col items-center justify-center">
+              {/* PDF Previewer with real embedded PDF viewer iframe */}
               {previewMaterial.fileType === 'pdf' && (
-                <div 
-                  className="bg-white rounded-2xl shadow-md border border-slate-200 w-full max-w-2xl p-8 space-y-6 transition-transform origin-top"
-                  style={{ transform: `scale(${previewZoom / 100})` }}
-                >
-                  <div className="border-b-2 border-sky-600 pb-4 flex items-center justify-between">
-                    <div>
-                      <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px] font-bold uppercase">
-                        {previewMaterial.courseCode} • Academic Department Archive
-                      </span>
-                      <h1 className="text-xl font-black text-slate-900 mt-1">
-                        {previewMaterial.title}
-                      </h1>
-                      <p className="text-xs text-slate-500">
-                        {previewMaterial.courseTitle} • Instructor: {previewMaterial.uploadedBy}
-                      </p>
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  {previewLoading ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-slate-500">
+                      <Clock className="w-8 h-8 animate-spin mb-2 text-sky-600" />
+                      <span className="text-xs font-bold">Rendering authentic PDF document...</span>
                     </div>
-                    <div className="text-right text-[11px] text-slate-400 font-mono">
-                      Page {previewPage} / 4
-                    </div>
-                  </div>
-
-                  {previewPage === 1 && (
-                    <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                      <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-1">
-                        1. Introduction & Syllabus Foundations
-                      </h2>
-                      <p>
-                        This verified university document constitutes official supplementary materials for <strong>{previewMaterial.courseCode}</strong>. Students are expected to complete the assigned readings prior to the practical session in the central lecture complex.
-                      </p>
-                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                        <div className="font-bold text-slate-900 text-xs">Document Synopsis:</div>
-                        <p className="text-xs text-slate-600 italic">
-                          "{previewMaterial.description}"
-                        </p>
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-xs">Core Learning Outcomes:</h3>
-                      <ul className="list-disc pl-5 space-y-1 text-xs text-slate-600">
-                        <li>Differentiate morphological organ structures and physiological systems across taxa.</li>
-                        <li>Apply standard taxonomic classification keys and statistical variance formulas.</li>
-                        <li>Execute continuous assessment test questions with standard academic rigor.</li>
-                      </ul>
-                    </div>
-                  )}
-
-                  {previewPage === 2 && (
-                    <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                      <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-1">
-                        2. Detailed Methodologies, Equations & Specimen Keys
-                      </h2>
-                      <p>
-                        When conducting laboratory assays or phylogenetic comparative analysis, ensure calibration of microscopy objectives and sterile handling:
-                      </p>
-                      <div className="p-4 rounded-xl bg-sky-50 border border-sky-200 font-mono text-xs text-sky-950">
-                        F-statistic = (Between-Group Variance / df_between) / (Within-Group Variance / df_within)
-                        <br />
-                        p-value critical threshold: α = 0.05
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Refer to continuous assessment question sets distributed by faculty instructors. Keep detailed experimental observations in your practical logbook.
-                      </p>
-                    </div>
-                  )}
-
-                  {previewPage >= 3 && (
-                    <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
-                      <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-1">
-                        3. Review Exercises & Suggested Bibliography
-                      </h2>
-                      <p className="text-xs text-slate-600">
-                        Solve exercises 1 through 12. Compare results with study pod members in the Student Network discussion channel before Friday's seminar consultation.
-                      </p>
-                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
-                        <strong>Exam Advisory:</strong> Concepts from this lecture material comprise approximately 25% of the upcoming CAT 1 paper.
+                  ) : previewBlobUrl ? (
+                    <div className="w-full h-full flex flex-col">
+                      <iframe
+                        src={previewBlobUrl}
+                        className="w-full flex-1 rounded-2xl border border-slate-300 shadow-inner bg-slate-800"
+                        title={previewMaterial.title}
+                      />
+                      <div className="mt-2 text-center shrink-0">
+                        <a
+                          href={previewBlobUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-sky-700 hover:text-sky-900 font-bold underline inline-flex items-center gap-1.5"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Open PDF in full browser tab for native pagination and tools
+                        </a>
                       </div>
                     </div>
+                  ) : (
+                    <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-xs text-slate-600 font-medium">Unable to generate PDF preview in this browser.</p>
+                      <button
+                        onClick={() => handleDownload(previewMaterial)}
+                        className="mt-3 px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-bold"
+                      >
+                        Download PDF File ({previewMaterial.fileSize})
+                      </button>
+                    </div>
                   )}
-
-                  <div className="pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Verified Academic Repository • CampusFlow TZ</span>
-                    <span>Document SHA-256: 9e8a7c2b...</span>
-                  </div>
                 </div>
               )}
 
-              {/* Image Previewer */}
+              {/* Real Image / Diagram Previewer */}
               {previewMaterial.fileType === 'image' && (
-                <div className="flex flex-col items-center justify-center max-w-2xl w-full">
-                  <div 
-                    className="bg-white rounded-2xl p-4 shadow-md border border-slate-200 transition-transform"
-                    style={{ transform: `scale(${previewZoom / 100})` }}
-                  >
-                    <img
-                      src={previewMaterial.contentDataUrl || 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&fit=crop&q=80'}
-                      alt={previewMaterial.title}
-                      className="rounded-xl max-h-[65vh] object-contain mx-auto"
-                    />
-                    <div className="mt-3 text-center">
-                      <p className="text-xs font-bold text-slate-800">{previewMaterial.title}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{previewMaterial.description}</p>
+                <div className="flex flex-col items-center justify-center max-w-3xl w-full p-4 my-auto">
+                  {previewLoading ? (
+                    <div className="text-xs text-slate-500 font-bold">Loading vector diagram...</div>
+                  ) : (
+                    <div className="bg-white rounded-3xl p-5 shadow-xl border border-slate-200 w-full text-center">
+                      <img
+                        src={previewBlobUrl || previewMaterial.contentDataUrl || 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&fit=crop&q=80'}
+                        alt={previewMaterial.title}
+                        className="rounded-2xl max-h-[62vh] object-contain mx-auto shadow-sm"
+                      />
+                      <div className="mt-4 text-center">
+                        <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md uppercase">
+                          {previewMaterial.courseCode} Anatomical Diagram
+                        </span>
+                        <h3 className="text-sm font-black text-slate-900 mt-1">{previewMaterial.title}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5 max-w-md mx-auto">{previewMaterial.description}</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Presentation (PPTX) Previewer */}
-              {previewMaterial.fileType === 'pptx' && (
-                <div className="bg-slate-900 text-white rounded-2xl w-full max-w-2xl p-8 flex flex-col justify-between shadow-xl">
-                  <div>
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                      <span className="text-xs font-bold text-amber-400">{previewMaterial.courseCode} SLIDE DECK</span>
-                      <span className="text-xs text-slate-400">Slide 1 of 18</span>
+              {/* Text File Previewer */}
+              {previewMaterial.fileType === 'txt' && (
+                <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-3xl p-6 shadow-md overflow-y-auto max-h-[72vh] my-auto">
+                  <div className="border-b border-slate-200 pb-3 mb-4 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-2 py-0.5 rounded">
+                        Document Text Reader
+                      </span>
+                      <h3 className="text-base font-black text-slate-900 mt-1">{previewMaterial.title}</h3>
+                      <p className="text-xs text-slate-500">{previewMaterial.courseCode} • {previewMaterial.uploadedBy}</p>
                     </div>
-                    <div className="my-12 text-center">
-                      <h2 className="text-2xl font-black text-white">{previewMaterial.title}</h2>
-                      <p className="text-sm text-slate-400 mt-2">{previewMaterial.courseTitle}</p>
-                      <p className="text-xs text-amber-300 mt-1">Instructor: {previewMaterial.uploadedBy}</p>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-slate-800/80 rounded-xl text-xs text-slate-300">
-                    <strong>Slide Notes:</strong> {previewMaterial.description}
-                  </div>
-                </div>
-              )}
-
-              {/* Spreadsheet (XLSX) Previewer */}
-              {previewMaterial.fileType === 'xlsx' && (
-                <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-3xl p-6 shadow-md overflow-x-auto">
-                  <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Spreadsheet Table Preview: {previewMaterial.title}
-                  </h3>
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700">
-                        <th className="p-2.5 border border-slate-200">#</th>
-                        <th className="p-2.5 border border-slate-200">Parameter / Variable</th>
-                        <th className="p-2.5 border border-slate-200">Mean Value</th>
-                        <th className="p-2.5 border border-slate-200">Std Error</th>
-                        <th className="p-2.5 border border-slate-200">p-value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="p-2.5 border border-slate-200 font-mono">1</td>
-                        <td className="p-2.5 border border-slate-200">Sampling Site A (Marine Flora)</td>
-                        <td className="p-2.5 border border-slate-200">42.8 mg/L</td>
-                        <td className="p-2.5 border border-slate-200">± 1.4</td>
-                        <td className="p-2.5 border border-slate-200 font-semibold text-emerald-700">0.012 *</td>
-                      </tr>
-                      <tr className="bg-slate-50">
-                        <td className="p-2.5 border border-slate-200 font-mono">2</td>
-                        <td className="p-2.5 border border-slate-200">Sampling Site B (Mangrove Estuary)</td>
-                        <td className="p-2.5 border border-slate-200">67.3 mg/L</td>
-                        <td className="p-2.5 border border-slate-200">± 2.1</td>
-                        <td className="p-2.5 border border-slate-200 font-semibold text-emerald-700">0.004 **</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2.5 border border-slate-200 font-mono">3</td>
-                        <td className="p-2.5 border border-slate-200">Control Specimen Basin</td>
-                        <td className="p-2.5 border border-slate-200">12.1 mg/L</td>
-                        <td className="p-2.5 border border-slate-200">± 0.8</td>
-                        <td className="p-2.5 border border-slate-200 text-slate-500">0.420</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Compressed Archive (ZIP) or Unsupported: Clear Message */}
-              {(previewMaterial.fileType === 'zip' || previewMaterial.fileType === 'other') && (
-                <div className="bg-white rounded-3xl border border-slate-200 p-8 max-w-lg w-full text-center shadow-lg my-auto">
-                  <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-200">
-                    <Archive className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    In-Browser Preview Not Available for Compressed Archive
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    This file is stored in compressed format (<strong>.{previewMaterial.fileType}</strong>). Browser sandboxing prevents extracting archive directory trees directly inside this preview window.
-                  </p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    You can download the full package ({previewMaterial.fileSize}) directly to your device or share the repository access link with classmates.
-                  </p>
-
-                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
                     <button
                       onClick={() => handleDownload(previewMaterial)}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md transition-all active:scale-95"
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
                     >
-                      <Download className="w-4 h-4" />
-                      <span>Download Archive ({previewMaterial.fileSize})</span>
-                    </button>
-                    <button
-                      onClick={() => handleCopyLink(previewMaterial)}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
-                    >
-                      <Copy className="w-4 h-4" />
-                      <span>Copy Link</span>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
                     </button>
                   </div>
+                  <pre className="font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    {previewTextContent || 'Loading document contents...'}
+                  </pre>
                 </div>
               )}
 
-              {/* Text / Code File Previewer */}
-              {(previewMaterial.fileType === 'txt' || previewMaterial.fileType === 'docx') && (
-                <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-2xl p-6 shadow-md space-y-4">
-                  <div className="border-b border-slate-200 pb-3">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Text & Document Reader</span>
-                    <h2 className="text-base font-black text-slate-900 mt-0.5">{previewMaterial.title}</h2>
+              {/* Office Documents (DOCX / PPTX / XLSX / ZIP) Preview Notice */}
+              {['docx', 'pptx', 'xlsx', 'zip', 'other'].includes(previewMaterial.fileType) && (
+                <div className="bg-white rounded-3xl border border-slate-200 w-full max-w-xl p-6 sm:p-8 shadow-xl text-center space-y-4 my-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mx-auto flex items-center justify-center">
+                    {renderFileIcon(previewMaterial.fileType)}
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
-                    {`CAMPUSFLOW ACADEMIC ARCHIVE: ${previewMaterial.courseCode}\nTitle: ${previewMaterial.title}\nUploaded by: ${previewMaterial.uploadedBy} on ${previewMaterial.uploadDate}\n\nSUMMARY & LECTURE OUTLINE:\n${previewMaterial.description}\n\n[End of Document]`}
+                  <div>
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider">
+                      .{previewMaterial.fileType.toUpperCase()} Document Archive
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 mt-2">{previewMaterial.title}</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {previewMaterial.courseCode} • {previewMaterial.fileName} ({previewMaterial.fileSize})
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs text-slate-600 space-y-2">
+                    <div className="font-bold text-slate-800">Preview Notice:</div>
+                    <p>
+                      Preview unavailable in browser for proprietary office formats (.{previewMaterial.fileType}).
+                      Download the authentic original file to view with Microsoft Office, LibreOffice, Apple iWork, or Google Docs.
+                    </p>
+                    {previewMaterial.sourceLink && previewMaterial.sourceLink.startsWith('http') && (
+                      <div className="pt-2 border-t border-slate-200">
+                        <a
+                          href={previewMaterial.sourceLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1.5 underline"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Visit Verified Educational Resource ({previewMaterial.institution})
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                    <button
+                      onClick={() => handleDownload(previewMaterial)}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Original File ({previewMaterial.fileSize})</span>
+                    </button>
+                    <button
+                      onClick={closePreview}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                    >
+                      Close
+                    </button>
                   </div>
                 </div>
               )}
